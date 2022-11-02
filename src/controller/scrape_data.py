@@ -18,12 +18,12 @@ class data_scraper:
     def __init__(self) -> None:
         self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw",Image,self.callback)
         fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-        self.video_writer = cv2.VideoWriter('test_data.mp4', fourcc, 30, (shape[1], shape[0]))
+        self.video_writer = cv2.VideoWriter('test_data.mp4', fourcc, 30)
         # print("video writer opened: %b", self.video_writer.isOpened())
 
 
     def callback(self, data):
-        pass
+        self.video_writer.write(data)
 
 
 def main(args):
