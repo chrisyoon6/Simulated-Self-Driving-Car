@@ -12,12 +12,12 @@ import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
-uh = 130
-us = 255
+uh = 179
+us = 10
 uv = 255
-lh = 110
-ls = 50
-lv = 50
+lh = 0
+ls = 0
+lv = 200
 lower_hsv = np.array([lh,ls,lv])
 upper_hsv = np.array([uh,us,uv])
 
@@ -31,11 +31,14 @@ class image_converter:
 
   def process_image(self,image):
     #image processing
-    blue = image[:,:,0]
-    blur = cv2.medianBlur(blue,5)
-    ret,th = cv2.threshold(blur,100,255,cv2.THRESH_BINARY_INV)
+    # image[:,:,2] = 0
+    # image[:,:,1] = 0
 
-    return th
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+    blur = cv2.GaussianBlur(mask,(3,3), 0)
+
+    return blur
 
     
   def callback(self,data):
@@ -59,7 +62,7 @@ class image_converter:
     # see the results
     #self.i+=1
     #w_title = ("none {}".format(self.i))
-    cv2.imshow('a', processed_im)
+    cv2.imshow('script_view', processed_im)
     cv2.waitKey(3)
 
 
