@@ -19,7 +19,7 @@ class data_scraper:
         self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw",Image,self.callback)
         self.bridge = CvBridge()
         
-        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+        fourcc = cv2.VideoWriter_fourcc(*'MP4V')
         self.video_writer = cv2.VideoWriter('test_data.mp4', fourcc, 20, (1280, 720))
         # print("video writer opened: %b", self.video_writer.isOpened())
 

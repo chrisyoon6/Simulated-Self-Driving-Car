@@ -22,11 +22,19 @@ class data_scraper:
         
         self.cmd_vals = []
 
+        self.bridge = CvBridge()
+        
+        fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+        self.video_writer = cv2.VideoWriter('test_data.mp4', fourcc, 20, (1280, 720))
+
 
     def callback_img(self, data):
         x = self.Twist[0]
         z = self.Twist[1]
         self.cmd_vals.append((x,z))
+        cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
+        frame = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+        self.video_writer.write(frame)
 
     def callback_twist(self,data):
         self.Twist = (data.linear.x, data.angular.z)
