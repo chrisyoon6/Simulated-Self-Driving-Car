@@ -29,12 +29,27 @@ class data_scraper:
 
 
     def callback_img(self, data):
-        x = self.Twist[0]
-        z = self.Twist[1]
-        self.cmd_vals.append((x,z))
-        cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
-        frame = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
-        self.video_writer.write(frame)
+        if (self.Twist[0] != 0 or self.Twist[1] != 0):
+          x = self.Twist[0]
+          z = self.Twist[1]
+          err = 0.1
+          fwd = 0.4
+          ang= 1.6
+          if (x > fwd-err and x < fwd+err and z > ang-4*err and z < ang+4*err):
+            x,z = (0.4, 1.6)
+          if (x > fwd-err and x < fwd+err and z > -ang-4*err and z < -ang+4*err):
+            x,z = (0.4, -1.6)
+          if (x > fwd-err and x < fwd+err and z > -4*err and z < 4*err):
+            x,z = (0.4, 0)
+          if (x > -err and x < err and z > ang-4*err and z < ang+4*err):
+            x,z = (0, 1.6)
+          if (x > -err and x < err and z > -ang-4*err and z < -ang+4*err):
+            x,z = (0, -1.6)
+
+          self.cmd_vals.append((x,z))
+          cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
+          frame = cv2.cvtColor(cv_image, cv2.COLOR_BGR2RGB)
+          self.video_writer.write(frame)
 
     def callback_twist(self,data):
         self.Twist = (data.linear.x, data.angular.z)
