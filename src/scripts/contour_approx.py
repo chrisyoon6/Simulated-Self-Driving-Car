@@ -13,13 +13,16 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 uh = 179
-us = 10
-uv = 230
+us = 20
+uv = 210
 lh = 0
 ls = 0
-lv = 150
+lv = 90
 lower_hsv = np.array([lh,ls,lv])
 upper_hsv = np.array([uh,us,uv])
+
+font = cv2.FONT_HERSHEY_COMPLEX
+font_size = 0.5
 
 class image_converter:
 
@@ -36,9 +39,10 @@ class image_converter:
 
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-    blur = cv2.GaussianBlur(mask,(7,7), 0)
+    blur = cv2.GaussianBlur(mask,(5,5), 0)
+    dil = cv2.dilate(blur, (5,5))
 
-    return blur
+    return dil
 
     
   def callback(self,data):
@@ -71,10 +75,39 @@ class image_converter:
     perimiter = cv2.arcLength(c,True)
     approx = cv2.approxPolyDP(c,epsilon*perimiter,True)
 
+    n = approx.ravel()
+    i = 0
+    coords = []
+    for j in n :
+        if(i % 2 == 0):
+            x = n[i]
+            y = n[i + 1]
+            coords.append((x,y))
+  
+            # String containing the co-ordinates.
+            string = str(x) + " " + str(y) 
+  
+            if(i == 0):
+                # text on topmost co-ordinate.
+                cv2.putText(disp, "top", (x, y),
+                                font, font_size, (255, 0, 0)) 
+            else:
+                # text on remaining co-ordinates.
+                cv2.putText(disp, string, (x, y), 
+                          font, font_size, (0, 255, 0)) 
+        i = i + 1
+
+    # resizing to have pairs of points
+    pts = np.float32(coords).reshape(-1, 2)
+    pts2 = np.float32([[0, 0], [400, 0],
+                       [0, 640], [400, 640]])
+    M = cv2.getPerspectiveTransform(pts, pts2)
+    dst = cv2.perspectiveTransform(pts, pts2)
+    plate_view = cv2.warpPerspective(disp, M, (200,200))
 
     cv2.drawContours(image=disp, contours=[approx], contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
  
-    cv2.imshow('script_view', disp)
+    cv2.imshow('script_view', plate_view)
     cv2.waitKey(3)
 
 
