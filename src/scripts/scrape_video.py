@@ -30,15 +30,15 @@ class data_scraper:
         self.video_writer.write(frame)
 
 def main(args):
-  ds = data_scraper()
-  rospy.init_node('controller', anonymous=True)
-  try:
-    rospy.spin()
-  except KeyboardInterrupt:
-    print("Shutting down")
+	ds = data_scraper()
+	rospy.init_node('controller', anonymous=True)
+	try:
+		rospy.spin()
+	except KeyboardInterrupt:
+		print("Shutting down")
 
-  ds.video_writer.release()
-  cv2.destroyAllWindows()
+	ds.video_writer.release()
+	cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main(sys.argv)
