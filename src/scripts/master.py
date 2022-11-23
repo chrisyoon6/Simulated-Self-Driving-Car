@@ -18,7 +18,6 @@ class master:
   def __init__(self):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw",Image,self.callback)
-    self.clock_sub = rospy.Subscriber("/clock", Image)
 
     self.vel_pub = rospy.Publisher("/R1/cmd_vel", Twist, queue_size=1)
     self.license_pub = rospy.Publisher("/license_plate", String, queue_size=1)
