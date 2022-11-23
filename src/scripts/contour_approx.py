@@ -13,13 +13,16 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 uh = 179
-us = 20
+us = 10
 uv = 210
 lh = 0
 ls = 0
 lv = 90
 lower_hsv = np.array([lh,ls,lv])
 upper_hsv = np.array([uh,us,uv])
+
+PLATE_WIDTH = 200
+PLATE_HEIGHT = 320
 
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
@@ -76,40 +79,81 @@ class image_converter:
     approx = cv2.approxPolyDP(c,epsilon*perimiter,True)
 
     n = approx.ravel()
-    i = 0
-    coords = []
-    for j in n :
-        if(i % 2 == 0):
-            x = n[i]
-            y = n[i + 1]
-            coords.append((x,y))
-  
-            # String containing the co-ordinates.
-            string = str(x) + " " + str(y) 
-  
-            if(i == 0):
-                # text on topmost co-ordinate.
-                cv2.putText(disp, "top", (x, y),
-                                font, font_size, (255, 0, 0)) 
-            else:
-                # text on remaining co-ordinates.
-                cv2.putText(disp, string, (x, y), 
-                          font, font_size, (0, 255, 0)) 
-        i = i + 1
+    pts = np.float32(self.get_coords(n)).reshape(-1, 2)
+    sorted_pts = self.contour_coords_sorted(pts)
+    
+    # cv2.putText(disp, "tl", (int(sorted_pts[0][0]), int(sorted_pts[0][1])), font, font_size, (0, 255, 0)) 
+    # cv2.putText(disp, "tr", (int(sorted_pts[1][0]), int(sorted_pts[1][1])), font, font_size, (0, 255, 0)) 
+    # cv2.putText(disp, "bl", (int(sorted_pts[2][0]), int(sorted_pts[2][1])), font, font_size, (0, 255, 0)) 
+    # cv2.putText(disp, "br", (int(sorted_pts[3][0]), int(sorted_pts[3][1])), font, font_size, (0, 255, 0)) 
+    # print(pts)
 
     # resizing to have pairs of points
-    pts = np.float32(coords).reshape(-1, 2)
-    pts2 = np.float32([[0, 0], [400, 0],
-                       [0, 640], [400, 640]])
-    M = cv2.getPerspectiveTransform(pts, pts2)
-    dst = cv2.perspectiveTransform(pts, pts2)
-    plate_view = cv2.warpPerspective(disp, M, (200,200))
+    plate_view = self.transform_perspective(PLATE_WIDTH, PLATE_HEIGHT, sorted_pts, out)
 
     cv2.drawContours(image=disp, contours=[approx], contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
  
-    cv2.imshow('script_view', plate_view)
+    cv2.imshow('plate_view', plate_view)
+    cv2.imshow('script_view', processed_im)
     cv2.waitKey(3)
 
+  
+  def transform_perspective(self, width, height, sorted_pts, image):
+    """Args: The coords of the polygon we are to transform into a rectangle.
+             Desired width and height of the transformed image.
+             The image from which we pull the polygon.
+
+             Returns: The polygon from the original image transformed into a square."""
+    pts = np.float32([[0, 0], [width, 0],
+                      [0, height], [width, height]])
+    Mat = cv2.getPerspectiveTransform(sorted_pts, pts)
+    return cv2.warpPerspective(image, Mat, (width, height))
+
+  
+  def get_coords(self, contour):
+    """Args: Approximated contour extracted with CHAIN_APPROX_NONE (only the verticies)
+       Returns: List of verticies in (x,y) coords"""
+    i = 0
+    coords = []
+    for j in contour :
+        if(i % 2 == 0):
+            x = contour[i]
+            y = contour[i + 1]
+            coords.append((x,y))
+  
+        i = i + 1
+      
+    return coords
+
+
+  def contour_coords_sorted(self, list_of_points):
+    """Args: List of contour verticies
+       Returns: Verticies in list sorted by top to bottom, left to right"""
+
+    avg_y = 0
+    avg_x = 0
+
+    for i in list_of_points:
+      avg_y += i[1]
+      avg_x += i[0]
+
+    avg_y = int(avg_y/4)
+    avg_x = int(avg_x/4)
+    
+
+    for i in list_of_points:
+      if (int(i[1]) < avg_y and int(i[0]) < avg_x):
+        tl = i
+      elif (int(i[1]) < avg_y):
+        tr = i
+      elif (int(i[0]) < avg_x):
+        bl = i
+      else:
+        br = i
+
+    coords = [list(tl), list(tr), list(bl), list(br)]
+
+    return np.float32(coords).reshape(-1, 2)
 
 def main(args):
   ic = image_converter()
