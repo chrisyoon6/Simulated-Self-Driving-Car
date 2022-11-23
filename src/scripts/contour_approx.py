@@ -21,8 +21,11 @@ lv = 90
 lower_hsv = np.array([lh,ls,lv])
 upper_hsv = np.array([uh,us,uv])
 
-PLATE_WIDTH = 200
-PLATE_HEIGHT = 320
+CAR_WIDTH = 200
+CAR_HEIGHT = 320
+PLATE_F = 270
+PLATE_I = 220
+PLATE_RES = (150, 298)
 
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
@@ -35,7 +38,10 @@ class image_converter:
     self.i = 0
 
 
-  def process_image(self,image):
+  def process_stream(self,image):
+    """processes the image using a grey filter to catch license plates
+    
+    returns a cv image"""
     #image processing
     # image[:,:,2] = 0
     # image[:,:,1] = 0
@@ -55,7 +61,7 @@ class image_converter:
       print(e)
 
     out = cv_image.copy()
-    processed_im = self.process_image(cv_image)
+    processed_im = self.process_stream(cv_image)
 
     # draw contours on the original image
 
@@ -89,13 +95,34 @@ class image_converter:
     # print(pts)
 
     # resizing to have pairs of points
-    plate_view = self.transform_perspective(PLATE_WIDTH, PLATE_HEIGHT, sorted_pts, out)
+    plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, sorted_pts, out)
 
     cv2.drawContours(image=disp, contours=[approx], contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
  
     cv2.imshow('plate_view', plate_view)
+
+    cv2.imshow('char 1', self.process_plate(0, plate_view))
+    cv2.imshow('char 2', self.process_plate(1, plate_view))
+    cv2.imshow('char 3', self.process_plate(2, plate_view))
+    cv2.imshow('char 4', self.process_plate(3, plate_view))
+
     cv2.imshow('script_view', processed_im)
     cv2.waitKey(3)
+
+  
+  def process_plate(self, pos, plate_im):
+    """Crops and processes plate images for individual letter.
+    
+    Args: pos - the position in the license plate
+          plate_im - image of license plate
+          
+    Returns: processed image of plate"""
+
+    crop = plate_im[PLATE_I:PLATE_F, int(pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
+    resize = cv2.resize(crop, PLATE_RES)
+
+    return resize
+
 
   
   def transform_perspective(self, width, height, sorted_pts, image):
