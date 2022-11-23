@@ -88,10 +88,10 @@ class image_converter:
     pts = np.float32(self.get_coords(n)).reshape(-1, 2)
     sorted_pts = self.contour_coords_sorted(pts)
     
-    # cv2.putText(disp, "tl", (int(sorted_pts[0][0]), int(sorted_pts[0][1])), font, font_size, (0, 255, 0)) 
-    # cv2.putText(disp, "tr", (int(sorted_pts[1][0]), int(sorted_pts[1][1])), font, font_size, (0, 255, 0)) 
-    # cv2.putText(disp, "bl", (int(sorted_pts[2][0]), int(sorted_pts[2][1])), font, font_size, (0, 255, 0)) 
-    # cv2.putText(disp, "br", (int(sorted_pts[3][0]), int(sorted_pts[3][1])), font, font_size, (0, 255, 0)) 
+    cv2.putText(disp, "tl", (int(sorted_pts[0][0]), int(sorted_pts[0][1])), font, font_size, (0, 255, 0)) 
+    cv2.putText(disp, "tr", (int(sorted_pts[1][0]), int(sorted_pts[1][1])), font, font_size, (0, 255, 0)) 
+    cv2.putText(disp, "bl", (int(sorted_pts[2][0]), int(sorted_pts[2][1])), font, font_size, (0, 255, 0)) 
+    cv2.putText(disp, "br", (int(sorted_pts[3][0]), int(sorted_pts[3][1])), font, font_size, (0, 255, 0)) 
     # print(pts)
 
     # resizing to have pairs of points
