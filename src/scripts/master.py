@@ -29,9 +29,10 @@ class master:
     
   def callback(self,data):
 
-    if (self.counter == 0):
+    if (self.counter == 10):
+        print(self.counter)
         self.license_pub.publish(String('TeamYoonifer,multi21,0,AA00'))
-    elif (self.counter == 20):
+    elif (self.counter == 40):
         self.license_pub.publish(String('TeamYoonifer,multi21,-1,AA00'))
     else:
         try:
@@ -40,7 +41,7 @@ class master:
             print(e)
 
         self.out_vel.linear.x = 0
-        self.out_vel.angular.z = 0.4
+        self.out_vel.angular.z = -0.4
 
         self.vel_pub.publish(self.out_vel)
 
@@ -50,8 +51,8 @@ class master:
 
 
 def main(args):
-  m = master()
   rospy.init_node('master', anonymous=True)
+  m = master()
   try:
     rospy.spin()
   except KeyboardInterrupt:
