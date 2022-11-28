@@ -1,3 +1,7 @@
 CMakeLists.txt
 package.xml
 *vscode*
+__pycache__
+requirements_old.txt
+drive_model
+drive-data-*
