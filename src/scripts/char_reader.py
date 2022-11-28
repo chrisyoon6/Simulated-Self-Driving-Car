@@ -50,7 +50,7 @@ class char_reader:
 
 
 def main(args):
-    path = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/license_plate_model1.h5'
+    path = '/home/fizzer/ros_ws/src/models/license_plate_model1.h5'
     print('***** initializing reader *****')
     cr = char_reader(path)
 
