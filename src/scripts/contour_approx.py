@@ -51,6 +51,22 @@ class image_converter:
         dil = cv2.dilate(blur, (5, 5))
 
         return dil
+    
+
+    def get_moments(self, img):
+        """Returns c, cx, cy.
+        c is the largest contour; 
+        cx, cy is the center of mass of the largest contour"""
+        contours, hierarchy = cv2.findContours(
+            image=img, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+
+        # gets the biggest contour and its info
+        c = max(contours, key=cv2.contourArea)
+        M = cv2.moments(c)
+        cx = int(M['m10']/M['m00'])
+        cy = int(M['m01']/M['m00'])
+
+        return  c, cx, cy
 
     def callback(self, data):
         try:
@@ -63,17 +79,7 @@ class image_converter:
 
         # draw contours on the original image
 
-        # gets the contours in the thresholded image
-        contours, hierarchy = cv2.findContours(
-            image=processed_im, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
-
-        # gets the biggest contour and its info
-        c = max(contours, key=cv2.contourArea)
-        M = cv2.moments(c)
-
-        # gets the center of mass of the contour
-        cx = int(M['m10']/M['m00'])
-        cy = int(M['m01']/M['m00'])
+        c, cx, cy = self.get_moments(processed_im)
 
         # draws a circle at the center of mass of contour
         disp = cv2.circle(out, (cx, cy), 2, (0, 255, 0), 2)
@@ -111,12 +117,12 @@ class image_converter:
           char_imgs.append(self.process_plate(i, plate_view))
 
         cv2.imshow('char 1', char_imgs[0])
-        cv2.imwrite('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_2.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
+        cv2.imwrite('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_8.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
         cv2.imshow('char 2', char_imgs[1])
         cv2.imshow('char 3', char_imgs[2])
         cv2.imshow('char 4', char_imgs[3])
 
-        #print(char_reader.predict(cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY)))
+        print(char_reader.predict(cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY)))
 
         cv2.imshow('script_view', processed_im)
         cv2.waitKey(3)
@@ -192,6 +198,32 @@ class image_converter:
 
 def main(args):
     ic = image_converter()
+
+    # input = cv2.imread('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/P5-AS93.png')
+    # processed_im = ic.process_stream(input)
+    # c, cx, cy = ic.get_moments(processed_im)
+
+    # epsilon = 0.1  # higher means simplify more
+    # perimiter = cv2.arcLength(c, True)
+    # approx = cv2.approxPolyDP(c, epsilon*perimiter, True)
+
+    # n = approx.ravel()
+    # pts = np.float32(ic.get_coords(n)).reshape(-1, 2)
+    # sorted_pts = ic.contour_coords_sorted(pts)
+    # plate_view = ic.transform_perspective(
+    #         CAR_WIDTH, CAR_HEIGHT, sorted_pts, input)
+
+    # char_imgs = []
+    # for i in range(4):
+    #     char_imgs.append(ic.process_plate(i, plate_view))
+    
+    # while(True):
+    #     cv2.imshow('char 1', char_imgs[0])
+    #     cv2.imshow('char 2', char_imgs[1])
+    #     cv2.imshow('char 3', char_imgs[2])
+    #     cv2.imshow('char 4', char_imgs[3])
+
+
     rospy.init_node('image_converter', anonymous=True)
     try:
         rospy.spin()

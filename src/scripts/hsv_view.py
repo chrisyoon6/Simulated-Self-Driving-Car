@@ -17,7 +17,7 @@ us = 10
 uv = 255
 lh = 0
 ls = 0
-lv = 200
+lv = 100
 lower_hsv = np.array([lh,ls,lv])
 upper_hsv = np.array([uh,us,uv])
 
@@ -46,8 +46,8 @@ class image_converter:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
       print(e)
-
     processed_im = self.process_image(cv_image)
+    print(processed_im)
 
     # draw contours on the original image
     # contours, hierarchy = cv2.findContours(image=processed_im, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
@@ -62,6 +62,7 @@ class image_converter:
     # see the results
     #self.i+=1
     #w_title = ("none {}".format(self.i))
+    cv2.imshow('original_view', cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV))
     cv2.imshow('script_view', processed_im)
     cv2.waitKey(3)
 
