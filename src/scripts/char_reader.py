@@ -54,7 +54,7 @@ def main(args):
     print('***** initializing reader *****')
     cr = char_reader(path)
 
-    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_Y.png'))
+    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_P.png'))
     print('***** input shape *****')
     print(input.shape)
     print('***** prediction output *****')
