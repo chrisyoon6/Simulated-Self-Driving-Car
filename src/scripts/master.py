@@ -9,6 +9,8 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
+from hsv_view import image_converter
+from contour_approx import contour_approximator
 
 
 class master:

@@ -31,7 +31,7 @@ font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
 
-class image_converter:
+class contour_approximator:
 
     def __init__(self):
         self.bridge = CvBridge()
@@ -197,7 +197,7 @@ class image_converter:
 
 
 def main(args):
-    ic = image_converter()
+    ic = contour_approximator()
 
     # input = cv2.imread('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/P5-AS93.png')
     # processed_im = ic.process_stream(input)
