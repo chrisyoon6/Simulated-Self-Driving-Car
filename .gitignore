@@ -2,4 +2,4 @@ CMakeLists.txt
 package.xml
 *vscode*
 __pycache__
-model*
+src/model*
