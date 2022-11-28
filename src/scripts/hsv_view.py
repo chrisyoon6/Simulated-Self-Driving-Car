@@ -16,7 +16,7 @@ red_low = [0, 50, 50]
 red_up = [10, 255, 255]
 blue_low = [110, 50, 50]
 blue_up = [130, 255, 255]
-white_low = [0, 0, 200]
+white_low = [0, 0, 100]
 white_up = [179, 10, 255]
 
 uh = 179
