@@ -14,14 +14,19 @@ from cv_bridge import CvBridge, CvBridgeError
 
 
 class ImageProcessor:
+    """This class handles any image processing-related needs.
+    """    
+
     red_low = [0, 50, 50]
     red_up = [10, 255, 255]
     blue_low = [110, 50, 50]
     blue_up = [130, 255, 255]
-    white_low = [0, 0, 200]
+    white_low = [0, 0, 100]
     white_up = [179, 10, 255]
 
     def __init__(self):
+        """Creates an ImageProcessor Object.
+        """        
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback)
         """Currently filtered images"""
@@ -30,7 +35,11 @@ class ImageProcessor:
         self.white_im = None
 
     def process_image(self, image):
-        """Filters an image to show: blue, red, white only, respectively. Updates this object"""
+        """Filters an image to show: blue, red, white only, respectively. Updates this object
+
+        Args:
+            image (cv::Mat): image to be processed 
+        """        
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         self.blue_im = ImageProcessor.filter(hsv, ImageProcessor.blue_low, ImageProcessor.blue_up)
         self.red_im = ImageProcessor.filter(hsv, ImageProcessor.red_low, ImageProcessor.red_up)
@@ -44,6 +53,14 @@ class ImageProcessor:
         return blur
 
     def callback(self, data):
+        """Callback function for the subscriber node for the /R1/.../image_raw ros topic. This callback is called 
+        when a new message (frame) has arrived to the topic. 
+
+        Processes the arrived image data into hsv form, and shows it to a screen.
+
+        Args:
+            data (sensor_msgs::Image): image data from the /R1/.../image_raw ros topic
+        """        
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:

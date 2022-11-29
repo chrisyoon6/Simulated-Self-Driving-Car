@@ -24,7 +24,7 @@ class Model:
     
     @staticmethod
     def preprcocess_img(img):
-        """Processes the input image so a compatible format for the cnn.
+        """Processes the input image to a format that can be compared with the cnn.
 
         Args:
             img (cv::Mat): input image
@@ -35,10 +35,11 @@ class Model:
         img = img / 255
         img = np.expand_dims(np.expand_dims(img,axis=-1),axis=0)
         return img
+
     def predict(self, img):
         """Predicts what the robot's velocities should be based on the input image.
         Args:
-            img (cv::Mat): input image
+            img (cv::Mat): input image, without normalization or dimension expansion, just in the same format as the scraped images.
 
         Returns:
             np.array: A 1-D array containing the model's predictions
