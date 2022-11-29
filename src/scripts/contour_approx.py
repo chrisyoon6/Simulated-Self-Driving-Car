@@ -125,10 +125,10 @@ class contour_approximator:
         cv2.imshow('char 3', char_imgs[2])
         cv2.imshow('char 4', char_imgs[3])
         r = random.random()
-        cv2.imwrite(char_PATH + 'C' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
-        # cv2.imwrite(char_PATH + 'C' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
-        cv2.imwrite(char_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
-        # cv2.imwrite(char_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
+        cv2.imwrite(char_PATH + 'H' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(char_PATH + 'I' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
+        cv2.imwrite(char_PATH + '4' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(char_PATH + '5' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
 
 
         print(char_reader.predict(cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY)))
