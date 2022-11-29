@@ -18,7 +18,7 @@ class Model:
 
         Args:
             path (str): path where the trained model is saved. 
-        """        
+        """         
         self.mod = models.load_model(path)
         print(type(self.mod))
     

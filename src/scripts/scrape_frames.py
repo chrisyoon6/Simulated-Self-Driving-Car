@@ -99,7 +99,7 @@ class DataScraper:
 
         Args:
             img (cv::Mat): image to be compressed
-            cmp_ratio (float): ratio to compress the image.
+            cmp_ratio (float): ratio to compress the image (< 1).
 
         Returns:
             cv::Mat: compressed image

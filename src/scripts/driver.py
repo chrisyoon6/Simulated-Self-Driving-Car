@@ -12,7 +12,7 @@ from scrape_frames import DataScraper
 
 class Driver:
     DEF_VALS = (0.5, 0.5)
-    MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model2.h5"
+    MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model-0.h5"
     """
     (0.5,0) = 0
     (0, -1) = 1
