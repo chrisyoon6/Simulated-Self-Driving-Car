@@ -7,11 +7,13 @@ from concurrent.futures import process
 import sys
 import rospy
 import cv2
+import random
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from char_reader import char_reader
 
+# license plate working values
 uh = 179
 us = 10
 uv = 210
@@ -54,7 +56,7 @@ class contour_approximator:
     
 
     def get_moments(self, img):
-        """Returns c, cx, cy.
+        """Returns c, cx, cy. (Usually cx, cy are only important for debugging text)
         c is the largest contour; 
         cx, cy is the center of mass of the largest contour"""
         contours, hierarchy = cv2.findContours(
@@ -116,11 +118,18 @@ class contour_approximator:
         for i in range(4):
           char_imgs.append(self.process_plate(i, plate_view))
 
+        char_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/char-data/plate_'
+
         cv2.imshow('char 1', char_imgs[0])
-        cv2.imwrite('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_8.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
         cv2.imshow('char 2', char_imgs[1])
         cv2.imshow('char 3', char_imgs[2])
         cv2.imshow('char 4', char_imgs[3])
+        r = random.random()
+        cv2.imwrite(char_PATH + 'C' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(char_PATH + 'C' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
+        cv2.imwrite(char_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(char_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
+
 
         print(char_reader.predict(cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY)))
 

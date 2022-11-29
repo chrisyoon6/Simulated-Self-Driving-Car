@@ -54,7 +54,7 @@ def main(args):
     print('***** initializing reader *****')
     cr = char_reader(path)
 
-    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_P.png'))
+    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_E.png'))
     print('***** input shape *****')
     print(input.shape)
     print('***** prediction output *****')
@@ -69,7 +69,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    path = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/license_plate_model1.h5'
+    path = '/home/fizzer/ros_ws/src/models/license_plate_model1.h5'
     print('***** loading model *****')
     model = models.load_model(path)
 

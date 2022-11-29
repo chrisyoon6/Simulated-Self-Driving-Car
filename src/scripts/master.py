@@ -11,6 +11,7 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 from hsv_view import image_converter
 from contour_approx import contour_approximator
+from char_reader import char_reader
 
 
 class master:
@@ -28,12 +29,23 @@ class master:
         self.out_vel = Twist()
         self.counter = 0
 
-    def callback(self, data):
+    def callback(self, data):  ### TO BE REWRITTEN
 
-        if (self.counter == 10):
+        """
+        1: send start signal
+        2: get images
+        3: scan images
+            if nothing, drive like normal
+            if red line stop and check pedestrian
+            if see a license plate scan and process, get values only if above 60%
+            if 3rd intersection turn left
+        4: send stop signal
+        """
+
+        if (self.counter == 10): 
             print(self.counter)
             self.license_pub.publish(String('TeamYoonifer,multi21,0,AA00'))
-        elif (self.counter == 40):
+        elif (self.counter == 40): 
             self.license_pub.publish(String('TeamYoonifer,multi21,-1,AA00'))
         else:
             try:
