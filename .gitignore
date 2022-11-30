@@ -5,3 +5,4 @@ __pycache__
 ./src/models/license_plate_model1.h5
 drive-data-*
 requirements_old.txt
+drive_model
