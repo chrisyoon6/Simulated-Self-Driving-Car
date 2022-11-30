@@ -114,11 +114,11 @@ class contour_approximator:
 
         cv2.imshow('plate_view', plate_view)
 
-        """
         char_imgs = []
         for i in range(4):
           char_imgs.append(self.process_plate(i, plate_view))
 
+        """
         char_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/char-data/plate_'
 
         cv2.imshow('char 1', char_imgs[0])
