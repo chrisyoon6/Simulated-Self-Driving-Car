@@ -64,7 +64,7 @@ class PlateReader:
         cx = int(M['m10']/M['m00'])
         cy = int(M['m01']/M['m00'])
 
-        print("Max area", M['m00'])
+        # print("Max area", M['m00'])
 
         if debug:
             return c, cx, cy
@@ -90,7 +90,7 @@ class PlateReader:
 
         if not list(c):
             return
-        cv2.imshow('contours', cv2.drawContours(cv2.resize(cv_image, (200, 120)), c, -1, (0,0,255), 3))
+        cv2.imshow('contours', cv2.drawContours(cv2.resize(cv_image, (400, 300)), c, -1, (0,0,255), 3))
         cv2.waitKey(3)
 
         approx = self.approximate_plate(c, epsilon=0.1)
@@ -179,7 +179,7 @@ class PlateReader:
                  Returns: The polygon from the original image transformed into a square."""
         pts = np.float32([[0, 0], [width, 0],
                           [0, height], [width, height]])
-        print("transform perspective")
+        # print("transform perspective")
         Mat = cv2.getPerspectiveTransform(sorted_pts, pts)
         return cv2.warpPerspective(image, Mat, (width, height))
 

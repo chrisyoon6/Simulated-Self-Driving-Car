@@ -34,7 +34,6 @@ class CharReader:
         img = self.pre_processing_for_model(img)
         img = img/255
         img_aug = np.expand_dims(np.expand_dims(img, axis=-1), axis=0)
-        print(img_aug.shape)
         y_predict = self.model.predict(img_aug)[0]
 
         return y_predict
