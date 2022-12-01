@@ -10,11 +10,11 @@ from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 from hsv_view import image_converter
-from contour_approx import contour_approximator
+from scripts.plate_reader import PlateReader
 from char_reader import char_reader
 
 
-class master:
+class Master:
 
     def __init__(self):
         self.bridge = CvBridge()
@@ -64,7 +64,7 @@ class master:
 
 def main(args):
     rospy.init_node('master', anonymous=True)
-    m = master()
+    m = Master()
     try:
         rospy.spin()
     except KeyboardInterrupt:

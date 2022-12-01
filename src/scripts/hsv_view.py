@@ -23,6 +23,8 @@ class ImageProcessor:
     blue_up = [130, 255, 255]
     white_low = [0, 0, 100]
     white_up = [179, 10, 255]
+    plate_low = [0, 0, 90]
+    plate_up = [179, 10, 210]
 
     def __init__(self):
         """Creates an ImageProcessor Object.
@@ -33,6 +35,7 @@ class ImageProcessor:
         self.blue_im = None
         self.red_im = None
         self.white_im = None
+        self.plate_im = None
 
     def process_image(self, image):
         """Filters an image to show: blue, red, white only, respectively. Updates this object
@@ -40,17 +43,27 @@ class ImageProcessor:
         Args:
             image (cv::Mat): image to be processed 
         """        
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        self.blue_im = ImageProcessor.filter(hsv, ImageProcessor.blue_low, ImageProcessor.blue_up)
-        self.red_im = ImageProcessor.filter(hsv, ImageProcessor.red_low, ImageProcessor.red_up)
-        self.white_im = ImageProcessor.filter(hsv, ImageProcessor.white_low, ImageProcessor.white_up)
+        self.blue_im = ImageProcessor.filter(image, ImageProcessor.blue_low, ImageProcessor.blue_up)
+        self.red_im = ImageProcessor.filter(image, ImageProcessor.red_low, ImageProcessor.red_up)
+        self.white_im = ImageProcessor.filter(image, ImageProcessor.white_low, ImageProcessor.white_up)
+        self.plate_im = ImageProcessor.filter_plate(image, ImageProcessor.plate_low, ImageProcessor.plate_up)
 
     @staticmethod
     def filter(image, hsv_low, hsv_up):
         """Filters the image to the hsv ranges specified"""
-        mask = cv2.inRange(image, np.array(hsv_low), np.array(hsv_up))
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, np.array(hsv_low), np.array(hsv_up))
         blur = cv2.GaussianBlur(mask, (3, 3), 0)
         return blur
+
+    @staticmethod
+    def filter_plate(image, hsv_low, hsv_up):
+        """Filters and blurs the license plate to the hsv ranges specified"""
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, np.array(hsv_low), np.array(hsv_up))
+        blur = cv2.GaussianBlur(mask, (5, 5), 0)
+        dil = cv2.erode(blur, (9, 9))
+        return dil
 
     def callback(self, data):
         """Callback function for the subscriber node for the /R1/.../image_raw ros topic. This callback is called 

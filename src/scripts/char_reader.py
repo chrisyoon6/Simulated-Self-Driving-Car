@@ -15,11 +15,14 @@ from tensorflow.keras.utils import plot_model
 from PIL import Image
 
 
-class char_reader:
+class CharReader:
+    """This class handles character prediction from neural net.
+    """
+
     def __init__(self, path):
         self.model = models.load_model(path)
         print(type(self.model))
-
+    
     def predict(self, img, debug=False):
         """Returns the model predicted character for a given image.
         If `debug=True` it returns the probability too."""
@@ -52,7 +55,7 @@ class char_reader:
 def main(args):
     path = '/home/fizzer/ros_ws/src/models/license_plate_model1.h5'
     print('***** initializing reader *****')
-    cr = char_reader(path)
+    cr = CharReader(path)
 
     input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_E.png'))
     print('***** input shape *****')
