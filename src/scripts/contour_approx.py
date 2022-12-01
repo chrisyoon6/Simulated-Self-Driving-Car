@@ -53,7 +53,26 @@ class contour_approximator:
         dil = cv2.dilate(blur, (5, 5))
 
         return dil
-    
+
+    @staticmethod
+    def get_contours_area(img, nums=1):
+        """Obtains the top contour areas that are present in the binary image.
+        Defaulted to obtain the max.
+
+        Args:
+            img (cv::Mat): Binary image (i.e. two values)
+            nums (int): number of top contour areas to obtain
+
+        Returns:
+            list(float): the top contour areas, sorted in descending order
+        """        
+        contours, hierarchy = cv2.findContours(
+            image=img, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+        cs = sorted(contours, key=cv2.contourArea, reverse=True)
+        if len(cs) > nums:
+            cs = cs[:nums]
+        areas = [cv2.contourArea(c) for c in cs] 
+        return areas
 
     def get_moments(self, img):
         """Returns c, cx, cy. (Usually cx, cy are only important for debugging text)

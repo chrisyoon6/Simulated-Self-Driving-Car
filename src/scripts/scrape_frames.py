@@ -22,7 +22,6 @@ class DataScraper:
     ERR_X = 0.1
     ERR_Z = 0.2
     WIDTH, HEIGHT = (1280, 720)
-    FPS = 20
     COMPRESSION_RATIO = 0.25
     CROPPED_ROW_START = 90
     def __init__(self) -> None:
@@ -90,7 +89,7 @@ class DataScraper:
         img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
         hsv = ImageProcessor.filter(img, ImageProcessor.white_low, ImageProcessor.white_up)
         hsv = DataScraper.compress(hsv, DataScraper.COMPRESSION_RATIO)
-        hsv = DataScraper.crop(hsv, row_start=DataScraper.CROPPED_ROW_START)
+        hsv = ImageProcessor.crop(hsv, row_start=DataScraper.CROPPED_ROW_START)
         return hsv
 
     @staticmethod
@@ -105,31 +104,7 @@ class DataScraper:
             cv::Mat: compressed image
         """        
         return cv2.resize(img, (0,0), fx=cmp_ratio, fy=cmp_ratio)
-    @staticmethod
-    def crop(img, row_start=-1, row_end=-1, col_start=-1, col_end=-1):
-        """Crops the image to row,columns within the specified range. 
-        (Default) -1 if no change in the parameter.
-
-        Args:
-            img (cv::Mat): image to be cropped
-            row_start (int): new starting row pixel
-            row_end (int): new end row pixel (not inclusive)
-            col_start (int): new starting column pixel
-            col_end (int): new end column pixel (not inclusive)
-
-        Returns:
-            cv::Mat: cropped image
-        """
-        rows,cols,*rest = img.shape
-        if row_start == -1:
-            row_start = 0
-        if row_end == -1:
-            row_end = rows
-        if col_start == -1:
-            col_start = 0
-        if col_end == -1:
-            col_end = cols
-        return img[row_start:row_end, col_start:col_end]
+    
 
     @staticmethod
     def discretize_vals(x, z, err_x, err_z, set_x, set_z):
@@ -177,7 +152,7 @@ def temp():
     # img = np.array(img)
     img = DataScraper.compress(img, 0.25)
     print(img.shape)
-    img = DataScraper.crop(img, row_start=90)
+    img = ImageProcessor.crop(img, row_start=90)
     cv2.imshow('processed img', img)
     while cv2.waitKey(0) != ord('q'):
         pass
@@ -190,7 +165,7 @@ def temp2():
     for filename in os.listdir(folder):
         img = np.array(Image_PIL.open(os.path.join(folder, filename)))
         img = DataScraper.compress(img, 0.25)
-        img = DataScraper.crop(img, row_start=90)
+        img = ImageProcessor.crop(img, row_start=90)
         cv2.imwrite(os.path.join(comp_folder, filename), img)
 
 def temp3():
