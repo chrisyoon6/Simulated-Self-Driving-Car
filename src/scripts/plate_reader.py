@@ -11,7 +11,7 @@ import random
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from char_reader import char_reader
+from char_reader import CharReader
 from hsv_view import ImageProcessor
 
 # license plate working values
@@ -21,7 +21,8 @@ CAR_HEIGHT = 320
 PLATE_F = 270
 PLATE_I = 220
 PLATE_RES = (150, 298)
-CONTOUR_INVALID = -2
+PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model1.h5'
+PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model1.h5'
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
@@ -34,7 +35,8 @@ class PlateReader:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber(
             "/R1/pi_camera/image_raw", Image, self.callback)
-        #self.char_reader = char_reader()
+        self.num_reader = CharReader(PATH_NUM_MODEL)
+        self.alpha_reader = CharReader(PATH_ALPHA_MODEL)
         self.i = 0
 
     def get_moments(self, img, debug=False):
@@ -70,7 +72,11 @@ class PlateReader:
         return c
 
     def callback(self, data):
-        
+        """Handler of every callback when a new frame comes in
+
+        Args:
+            data (Image): For every new image, process that checks and reads plate
+        """        
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
@@ -84,9 +90,7 @@ class PlateReader:
 
         if not list(c):
             return
-        cv2.imshow('processed_im', processed_im)
-        cv2.imshow('contours', cv2.drawContours(cv_image, c, -1, (0,0,255), 3))
-        cv2.imshow('hsv', cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV))
+        cv2.imshow('contours', cv2.drawContours(cv2.resize(cv_image, (200, 120)), c, -1, (0,0,255), 3))
         cv2.waitKey(3)
 
         approx = self.approximate_plate(c, epsilon=0.1)
@@ -104,8 +108,21 @@ class PlateReader:
 
         char_imgs = self.get_char_imgs(plate=plate_view)
 
-        # print(char_reader.predict(cv2.cvtColor(
-        #     char_imgs[0], cv2.COLOR_BGR2GRAY)))
+
+        print(self.characters(char_imgs))
+
+    def characters(self, char_imgs):
+
+        license_plate = ''
+        for index,img in enumerate(char_imgs):
+            if index < 2:
+                prediction_vec = self.alpha_reader.predict_char(img=img)
+                license_plate += CharReader.interpret(predict_vec=prediction_vec)
+            else:
+                prediction_vec = self.num_reader.predict_char(img=img)
+                license_plate += CharReader.interpret(predict_vec=prediction_vec)
+
+        return license_plate
 
     def get_char_imgs(self, plate):
         """Gets the verticies of a simple shape such as a square, rectangle, etc.

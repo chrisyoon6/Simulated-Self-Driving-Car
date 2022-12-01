@@ -17,35 +17,67 @@ from PIL import Image
 
 class CharReader:
     """This class handles character prediction from neural net.
+
+    Requires path of the neural net file
     """
 
     def __init__(self, path):
         self.model = models.load_model(path)
         print(type(self.model))
-    
-    def predict(self, img, debug=False):
-        """Returns the model predicted character for a given image.
-        If `debug=True` it returns the probability too."""
 
+    def predict_char(self, img):
+        """Model prediction vector for a given image.
+
+        Returns:
+            List: the prediction vector for each possible prediction outcome
+        """
+        img = self.pre_processing_for_model(img)
         img = img/255
-        print(img.shape)
-        img_aug = np.expand_dims(np.expand_dims(img, axis=-1),axis=0)
-        # img_aug = np.reshape(img, (img.shape[0], img.shape[1], 1))
-        print(img_aug.shape)
-        print('***** predict *****')
+        img_aug = np.expand_dims(np.expand_dims(img, axis=-1), axis=0)
         print(img_aug.shape)
         y_predict = self.model.predict(img_aug)[0]
 
-        if np.argmax(y_predict) < 26:
-            char = chr(np.argmax(y_predict)+ord("A"))
+        return y_predict
+
+    @staticmethod
+    def interpret(predict_vec, debug=False):
+        """Converts prediction vector into character output
+
+        Args:
+            predict_vec (list): prediction vector given from neural net
+            debug (bool, optional): if true, also returns the probabilities. Defaults to False.
+
+        Returns:
+            char: output character
+            prob (optional): the probability of the top character prediction
+        """
+        if len(predict_vec) == 26:
+            out = chr(np.argmax(predict_vec)+ord('A'))
+        elif len(predict_vec) == 10:
+            out = chr(np.argmax(predict_vec)+ord('0'))
         else:
-            char = chr(np.argmax(y_predict)-26+ord("0"))
+            print('Invalid prediction vector')
+            return
 
         if debug:
-            prob = y_predict[np.argmax(y_predict)]
-            return char, prob
+            prob = predict_vec[np.argmax(predict_vec)]
+            return out, prob
 
-        return char
+        return out
+
+    def pre_processing_for_model(self, im):
+        """Formats image to dimensions for use in neural net
+
+        Args:
+            im (image): input image with a character to be read
+
+        Returns:
+            image: formatted image
+        """
+        resize = cv2.resize(im, (15, 29))
+        gray = cv2.cvtColor(resize, cv2.COLOR_BGR2GRAY)
+
+        return gray
 
     def model_summary(self):
         """Returns model summary"""
@@ -53,11 +85,12 @@ class CharReader:
 
 
 def main(args):
-    path = '/home/fizzer/ros_ws/src/models/license_plate_model1.h5'
+    path = '/home/fizzer/ros_ws/ENPH353-Team12/src/models/license_plate_model1.h5'
     print('***** initializing reader *****')
     cr = CharReader(path)
 
-    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_E.png'))
+    input = np.array(Image.open(
+        '/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/test_char_E.png'))
     print('***** input shape *****')
     print(input.shape)
     print('***** prediction output *****')
