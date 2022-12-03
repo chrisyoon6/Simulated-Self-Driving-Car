@@ -90,7 +90,7 @@ class PlateReader:
 
         if not list(c):
             return
-        cv2.imshow('contours', cv2.drawContours(cv2.resize(cv_image, (400, 300)), c, -1, (0,0,255), 3))
+        # cv2.imshow('contours', cv2.drawContours(cv2.resize(cv_image, (400, 300)), c, -1, (0,0,255), 3))
         cv2.waitKey(3)
 
         approx = self.approximate_plate(c, epsilon=0.1)
@@ -112,6 +112,15 @@ class PlateReader:
         print(self.characters(char_imgs))
 
     def characters(self, char_imgs):
+        """Gets the neural network predicted characters from the images of each character.
+
+        Args:
+            char_imgs (array[Image]): Array (length 4) of character images from the license plate.
+                First two images should be of letters, second two should be of numbers.
+
+        Returns:
+            str: a string representing the license plate
+        """
 
         license_plate = ''
         for index,img in enumerate(char_imgs):
@@ -151,7 +160,7 @@ class PlateReader:
 
         Args:
             contour (***): contour to be approximated
-            epsilon (***): approximation accuracy
+            epsilon (float in (0,1)): approximation accuracy
         """
         perimeter = cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, epsilon*perimeter, True)
@@ -199,8 +208,11 @@ class PlateReader:
         return coords
 
     def contour_coords_sorted(self, list_of_points):
-        """Args: List of contour verticies
-           Returns: Verticies in list sorted by top to bottom, left to right"""
+        """Sorts the verticies of a contour so it can be perspective transformed
+        
+        Args: List of contour verticies. Should have exactly 4 verticies with (x,y)
+        
+        Returns: Verticies in list sorted by top to bottom, left to right"""
 
         avg_y = 0
         avg_x = 0
@@ -237,7 +249,7 @@ class PlateReader:
 
 
 def main(args):
-    ic = PlateReader()
+    pr = PlateReader()
     rospy.init_node('image_converter', anonymous=True)
     try:
         rospy.spin()
