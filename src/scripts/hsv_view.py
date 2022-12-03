@@ -107,9 +107,9 @@ class ImageProcessor:
         mse = -1
         if self.temp_im is not None:
             mse = ImageProcessor.compare_frames(self.temp_im, img_gray)
-        contours = contour_approximator.get_contours_area(self.red_im, 3)
-        print("Contours:", contours)
-        # print("mse:", mse)
+        # contours = contour_approximator.get_contours_area(self.red_im, 3)
+        # print("Contours:", contours)
+        print("mse:", mse)
         self.temp_im = img_gray
         # cv2.imshow('script_view', img_gray)
         cv2.imshow('script_view', self.red_im)
