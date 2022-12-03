@@ -58,7 +58,7 @@ class DataScraper:
             return
         print(self.twist[0], self.twist[1])
         cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
-        hsv = DataScraper.process_img(cv_image)
+        hsv = DataScraper.process_img(cv_image, mode='rgb')
         # cv2.imshow('filtered', hsv)
         # cv2.waitKey(3)
         x,z = DataScraper.discretize_vals(self.twist[0], self.twist[1], DataScraper.ERR_X, DataScraper.ERR_Z, DataScraper.SET_X, DataScraper.SET_Z)
@@ -69,6 +69,7 @@ class DataScraper:
         cv2.imwrite(os.path.join(self.dirPath_raw, name), cv_image)
         cv2.imwrite(os.path.join(self.dirPath_hsv, "hsv_" + name), hsv)
         self.count += 1
+
     def callback_twist(self, data):
         """Callback for the subscriber node of the /cmd_vel topic, called whenever there is a new message from this topic
         (i.e. new Twist values).
@@ -80,14 +81,13 @@ class DataScraper:
         # print(self.twist[0], self.twist[1])
 
     @staticmethod
-    def process_img(img):
+    def process_img(img, type='bgr'):
         """Processes the raw image data to a format compatible for the cnn.
 
         Args:
             img (cv::Mat): raw image to be processed.
         """
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-        hsv = ImageProcessor.filter(img, ImageProcessor.white_low, ImageProcessor.white_up)
+        hsv = ImageProcessor.filter(img, ImageProcessor.white_low, ImageProcessor.white_up, type)
         hsv = DataScraper.compress(hsv, DataScraper.COMPRESSION_RATIO)
         hsv = ImageProcessor.crop(hsv, row_start=DataScraper.CROPPED_ROW_START)
         return hsv

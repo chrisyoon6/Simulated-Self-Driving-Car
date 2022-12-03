@@ -11,7 +11,6 @@ import random
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from char_reader import char_reader
 
 # license plate working values
 uh = 179
@@ -33,7 +32,7 @@ font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
 
-class contour_approximator:
+class PlatePull:
 
     def __init__(self):
         self.bridge = CvBridge()
@@ -44,7 +43,6 @@ class contour_approximator:
 
     def process_stream(self, image):
         """processes the image using a grey filter to catch license plates
-
         returns a cv image"""
 
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -137,32 +135,26 @@ class contour_approximator:
         for i in range(4):
           char_imgs.append(self.process_plate(i, plate_view))
 
-        """
-        char_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/char-data/plate_'
+        alpha_edge_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/alpha-edge-data/plate_'
+        num_edge_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/num-edge-data/plate_'
 
-        cv2.imshow('char 1', char_imgs[0])
-        cv2.imshow('char 2', char_imgs[1])
-        cv2.imshow('char 3', char_imgs[2])
-        cv2.imshow('char 4', char_imgs[3])
-        r1 = random.random()
-        r2 = random.random()
-        cv2.imwrite(char_PATH + 'Z' + str(r1) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
-        # cv2.imwrite(char_PATH + 'X' + str(r2) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
-        # cv2.imwrite(char_PATH + '9' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
-        # cv2.imwrite(char_PATH + '9' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
-        """
+        # cv2.imshow('char 1', char_imgs[0])
+        # cv2.imshow('char 2', char_imgs[1])
+        # cv2.imshow('char 3', char_imgs[2])
+        # cv2.imshow('char 4', char_imgs[3])
+        r = random.random()
+        # cv2.imwrite(alpha_edge_PATH + 'B' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(alpha_edge_PATH + 'O' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
+        cv2.imwrite(num_edge_PATH + '3' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(num_edge_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
 
-        print(char_reader.predict(cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY)))
-
-        cv2.imshow('script_view', processed_im)
+        cv2.imshow('plate_view', plate_view)
         cv2.waitKey(3)
 
     def process_plate(self, pos, plate_im):
         """Crops and processes plate images for individual letter.
-
         Args: pos - the position in the license plate
               plate_im - image of license plate
-
         Returns: processed image of plate"""
 
         crop = plate_im[PLATE_I:PLATE_F, int(
@@ -175,7 +167,6 @@ class contour_approximator:
         """Args: The coords of the polygon we are to transform into a rectangle.
                  Desired width and height of the transformed image.
                  The image from which we pull the polygon.
-
                  Returns: The polygon from the original image transformed into a square."""
         pts = np.float32([[0, 0], [width, 0],
                           [0, height], [width, height]])
@@ -227,32 +218,7 @@ class contour_approximator:
 
 
 def main(args):
-    ic = contour_approximator()
-
-    # input = cv2.imread('/home/fizzer/ros_ws/src/ENPH353-Team12/src/license-plate-data/P5-AS93.png')
-    # processed_im = ic.process_stream(input)
-    # c, cx, cy = ic.get_moments(processed_im)
-
-    # epsilon = 0.1  # higher means simplify more
-    # perimiter = cv2.arcLength(c, True)
-    # approx = cv2.approxPolyDP(c, epsilon*perimiter, True)
-
-    # n = approx.ravel()
-    # pts = np.float32(ic.get_coords(n)).reshape(-1, 2)
-    # sorted_pts = ic.contour_coords_sorted(pts)
-    # plate_view = ic.transform_perspective(
-    #         CAR_WIDTH, CAR_HEIGHT, sorted_pts, input)
-
-    # char_imgs = []
-    # for i in range(4):
-    #     char_imgs.append(ic.process_plate(i, plate_view))
-    
-    # while(True):
-    #     cv2.imshow('char 1', char_imgs[0])
-    #     cv2.imshow('char 2', char_imgs[1])
-    #     cv2.imshow('char 3', char_imgs[2])
-    #     cv2.imshow('char 4', char_imgs[3])
-
+    pp = PlatePull()
 
     rospy.init_node('image_converter', anonymous=True)
     try:

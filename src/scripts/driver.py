@@ -10,7 +10,9 @@ from time import sleep
 from hsv_view import ImageProcessor
 from model import Model
 from scrape_frames import DataScraper
-from contour_approx import contour_approximator
+from plate_reader import PlateReader
+from pull_plate import PlatePull
+from copy import deepcopy
 class Driver:
     DEF_VALS = (0.5, 0.5)
     MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model-0.h5"
@@ -60,6 +62,8 @@ class Driver:
         self.is_crossing_crosswalk = False
         self.first_stopped_frames_count = 0
 
+        self.pl = PlateReader()
+
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
         This callback is called when a new message has arrived to the /image_raw topic (i.e. a new frame from the camera).
@@ -75,10 +79,10 @@ class Driver:
         # cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.is_stopped_crosswalk:
-            print("stopped crosswalk")
+            # print("stopped crosswalk")
             # stopped in front of crosswalk stopped.
             if self.can_cross_crosswalk(cv_image):
-                print("can cross")
+                # print("can cross")
                 self.is_stopped_crosswalk = False
                 self.prev_mse_frame = None
                 self.first_ped_stopped = False
@@ -86,14 +90,16 @@ class Driver:
                 self.is_crossing_crosswalk = True
             return
 
-        print("driving")
+        # print("driving")
 
         if self.is_crossing_crosswalk:
-            print("crossing")
+            # print("crossing")
             self.crossing_crosswalk_count += 1
             self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES
 
-        hsv = DataScraper.process_img(cv_image)
+        hsv = DataScraper.process_img(cv_image, type="bgr")
+        # cv2.imshow("hsv", hsv)
+        # cv2.waitKey(3)
         predicted = self.mod.predict(hsv)
         pred_ind = np.argmax(predicted)
         self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
@@ -103,14 +109,16 @@ class Driver:
         # check if red line close only when not crossing
         if not self.is_crossing_crosswalk and self.is_red_line_close(cv_image):
             self.crossing_crosswalk_count = 0 
-            print("checking for red line")
+            # print("checking for red line")
             self.move.linear.x = 0
             self.move.angular.z = 0
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
-
-        # if driving: if close to red line, stop.
-        # if stopped in front of red line: if pedestrian not moving (given some time), drive 
+    
+        # license plate
+        lp = self.pl.get_license_plate(cv_image)
+        if lp:
+            print(lp)
 
         try:
             self.twist_pub.publish(self.move)
@@ -127,12 +135,11 @@ class Driver:
         Returns:
             bool: True if deemed close to the red line, False otherwise.
         """        
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)      
-        red_filt = ImageProcessor.filter(hsv, ImageProcessor.red_low, ImageProcessor.red_up)
+        red_filt = ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up)
         # cv2.imshow('script_view', red_filt)
         # cv2.waitKey(3)
-        area = contour_approximator.get_contours_area(red_filt,2)
-        print("Area", area)
+        area = PlatePull.get_contours_area(red_filt,2)
+        # print("Area", area)
         if not list(area):
             return False
 
@@ -165,8 +172,8 @@ class Driver:
         
         
         mse = ImageProcessor.compare_frames(self.prev_mse_frame, img_gray)
-        print("mse:", mse)
-        print("first ped stopped, first ped move:" , self.first_ped_stopped, self.first_ped_moved)
+        # print("mse:", mse)
+        # print("first ped stopped, first ped move:" , self.first_ped_stopped, self.first_ped_moved)
         self.prev_mse_frame = img_gray
         
         if self.first_stopped_frames_count <= int(Driver.FIRST_STOP_SECS*Driver.FPS):
@@ -196,7 +203,7 @@ def main(args):
     try:
         rospy.spin()
     except KeyboardInterrupt:
-        print("Shutting down")
+            ("Shutting down")
     cv2.destroyAllWindows()
     print("end")
 

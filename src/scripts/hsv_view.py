@@ -11,8 +11,9 @@ import time
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from contour_approx import contour_approximator
 from skimage.metrics import mean_squared_error
+
+from pull_plate import PlatePull
 
 class ImageProcessor:
     """This class handles any image processing-related needs.
@@ -24,6 +25,8 @@ class ImageProcessor:
     blue_up = [130, 255, 255]
     white_low = [0, 0, 100]
     white_up = [179, 10, 255]
+    plate_low = [0, 0, 90]
+    plate_up = [179, 10, 210]
 
     def __init__(self):
         """Creates an ImageProcessor Object.
@@ -35,6 +38,7 @@ class ImageProcessor:
         self.red_im = None
         self.white_im = None
         self.temp_im = None
+        self.plate_im = None
 
     def process_image(self, image):
         """Filters an image to show: blue, red, white only, respectively. Updates this object
@@ -42,20 +46,42 @@ class ImageProcessor:
         Args:
             image (cv::Mat): image to be processed 
         """        
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        self.blue_im = ImageProcessor.filter(hsv, ImageProcessor.blue_low, ImageProcessor.blue_up)
-        self.red_im = ImageProcessor.filter(hsv, ImageProcessor.red_low, ImageProcessor.red_up)
-        self.white_im = ImageProcessor.filter(hsv, ImageProcessor.white_low, ImageProcessor.white_up)
+        self.blue_im = ImageProcessor.filter(image, ImageProcessor.blue_low, ImageProcessor.blue_up)
+        self.red_im = ImageProcessor.filter(image, ImageProcessor.red_low, ImageProcessor.red_up)
+        self.white_im = ImageProcessor.filter(image, ImageProcessor.white_low, ImageProcessor.white_up)
+        self.plate_im = ImageProcessor.filter_plate(image, ImageProcessor.plate_low, ImageProcessor.plate_up)
 
     @staticmethod
-    def filter(image, hsv_low, hsv_up):
-        """Filters the image to the hsv ranges specified"""
-        mask = cv2.inRange(image, np.array(hsv_low), np.array(hsv_up))
+    def filter(image, hsv_low, hsv_up, type="bgr"):
+        """Filters an RGB image within an hsv range, and applies a blur. Returns the resulting binary image
+
+        Args:
+            image (cv::Mat): RGB image data to filter
+            hsv_low (list[int]): a list of the lower bound of the hue, saturation, value  
+            hsv_up (list[int]): a list of the upper bound of the hue, saturation, value
+            type (str): (Optional) the channel type of the image data. Assumed to be "bgr"
+        Returns:
+            cv::Mat: the procesed image (binary image)
+        """        """"""
+        if type == "rgb":
+            hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+        if type == "bgr":
+            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, np.array(hsv_low), np.array(hsv_up))
         blur = cv2.GaussianBlur(mask, (3, 3), 0)
         return blur
     
     @staticmethod
     def compare_frames(bin_img1, bin_img2):
+        """Compares two binary images and calculates the difference between the images
+        
+        Args:
+            bin_img1 (cv::Mat): binary image to compare
+            bin_img2 (cv::Mat): binary image to compare
+
+        Returns:
+            float: the error between the images
+        """        
         return mean_squared_error(bin_img1, bin_img2)
 
     @staticmethod
@@ -85,6 +111,24 @@ class ImageProcessor:
         return img[row_start:row_end, col_start:col_end]
 
 
+    @staticmethod
+    def filter_plate(image, hsv_low, hsv_up):
+        """Filters and blurs the license plate image to the hsv ranges specified
+
+        Args:
+            image (cv::Mat): image respresenting the license plate
+            hsv_low (list[int]): a list of the lower bound of the hue, saturation, value  
+            hsv_up (list[int]): a list of the upper bound of the hue, saturation, value
+
+        Returns:
+            cv::Mat: the processed image containing the license plate.
+        """        """"""
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, np.array(hsv_low), np.array(hsv_up))
+        blur = cv2.GaussianBlur(mask, (5, 5), 0)
+        dil = cv2.erode(blur, (9, 9))
+        return dil
+
     def callback(self, data):
         """Callback function for the subscriber node for the /R1/.../image_raw ros topic. This callback is called 
         when a new message (frame) has arrived to the topic. 
@@ -107,7 +151,7 @@ class ImageProcessor:
         mse = -1
         if self.temp_im is not None:
             mse = ImageProcessor.compare_frames(self.temp_im, img_gray)
-        # contours = contour_approximator.get_contours_area(self.red_im, 3)
+        # contours = PlatePull.get_contours_area(self.red_im, 3)
         # print("Contours:", contours)
         print("mse:", mse)
         self.temp_im = img_gray
