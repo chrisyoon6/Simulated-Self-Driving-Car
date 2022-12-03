@@ -2,6 +2,7 @@ CMakeLists.txt
 package.xml
 *vscode*
 __pycache__
+./src/scripts/__pycache__/char_reader.cpython-38.pyc
 ./src/models/license_plate_model1.h5
 drive-data-*
 requirements_old.txt
