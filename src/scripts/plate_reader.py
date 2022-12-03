@@ -26,20 +26,23 @@ PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_mode
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
+AREA_LOWER_THRES = 10000
+AREA_UPPER_THRES = 50000
 
 class PlateReader:
     """This class handles license plate recognition.
     """
 
-    def __init__(self):
-        # self.bridge = CvBridge()
-        # self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback)
+    def __init__(self, script_run=True):
+        self.bridge = CvBridge()
+        if script_run:
+            self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback)
         self.num_reader = CharReader(PATH_NUM_MODEL)
         self.alpha_reader = CharReader(PATH_ALPHA_MODEL)
         self.i = 0
 
     def get_moments(self, img, debug=False):
-        """Returns the moment of an image: c, cx, cy. 
+        """Returns the moment (contour) of an image: c, cx, cy. 
 
         Usually cx, cy are only important for debugging
         c is the largest contour; 
@@ -83,16 +86,15 @@ class PlateReader:
             print(e)
 
         out = cv_image.copy()
-        processed_im = ImageProcessor.filter_plate(
-            cv_image, ImageProcessor.plate_low, ImageProcessor.plate_up)
+        processed_im = ImageProcessor.filter_plate(cv_image, ImageProcessor.plate_low, ImageProcessor.plate_up)
 
         c = self.get_moments(processed_im)
 
         if not list(c):
             return
 
-        # cv2.imshow('contours', cv2.drawContours(cv2.resize(cv_image, (400, 300)), c, -1, (0,0,255), 3))
-        cv2.waitKey(3)
+        # cv2.imshow('contours', cv2.drawContours(cv2.resize(out, (400, 300)), c, -1, (0,0,255), 3))
+        # cv2.waitKey(3)
 
         approx = self.approximate_plate(c, epsilon=0.1)
 
@@ -101,22 +103,29 @@ class PlateReader:
         # print("Verticies", verticies)
 
         if not list(verticies):
-            print("No perspective transform")
+            # print("No perspective transform")
             return
+        # print(verticies)
+        # print(cv2.contourArea(c))
 
         plate_view = self.transform_perspective(
             CAR_WIDTH, CAR_HEIGHT, verticies, out)
-
+        cv2.imshow("plate", plate_view)
+        cv2.waitKey(3)
         char_imgs = self.get_char_imgs(plate=plate_view)
-
-
-        print(self.characters(char_imgs))
+        print(self.characters(char_imgs), cv2.contourArea)
 
     def get_license_plate(self,img):
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
         c = self.get_moments(processed_im)
         if not list(c):
             # no contour
+            return ""
+        area = cv2.contourArea(c)
+        print("---------Area: ", area)
+        # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
+        # cv2.waitKey(3)
+        if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
             return ""
         approx = self.approximate_plate(c, epsilon=0.1)
         verticies = self.verticies(approx_c=approx)
@@ -170,7 +179,7 @@ class PlateReader:
         """
         n = approx_c.ravel()
         pts = np.float32(self.get_coords(n)).reshape(-1, 2)
-        sorted_pts = self.contour_coords_sorted(pts)
+        sorted_pts = PlateReader.contour_coords_sorted(pts)
         return sorted_pts
 
     def approximate_plate(self, contour, epsilon):
@@ -225,7 +234,8 @@ class PlateReader:
 
         return coords
 
-    def contour_coords_sorted(self, list_of_points):
+    @staticmethod
+    def contour_coords_sorted(list_of_points):
         """Sorts the verticies of a contour so it can be perspective transformed
         
         Args: List of contour verticies. Should have exactly 4 verticies with (x,y)

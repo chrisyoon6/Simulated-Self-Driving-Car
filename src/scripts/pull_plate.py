@@ -12,6 +12,8 @@ import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+from plate_reader import PlateReader
+
 # license plate working values
 uh = 179
 us = 10
@@ -110,8 +112,10 @@ class PlatePull:
 
         n = approx.ravel()
         pts = np.float32(self.get_coords(n)).reshape(-1, 2)
-        sorted_pts = self.contour_coords_sorted(pts)
-
+        # sorted_pts = self.contour_coords_sorted(pts)
+        sorted_pts = PlateReader.contour_coords_sorted(pts)
+        if not list(sorted_pts):
+            return
         cv2.putText(disp, "tl", (int(sorted_pts[0][0]), int(
             sorted_pts[0][1])), font, font_size, (0, 255, 0))
         cv2.putText(disp, "tr", (int(sorted_pts[1][0]), int(
@@ -142,10 +146,10 @@ class PlatePull:
         # cv2.imshow('char 2', char_imgs[1])
         # cv2.imshow('char 3', char_imgs[2])
         # cv2.imshow('char 4', char_imgs[3])
-        r = random.random()
+        # r = random.random()
         # cv2.imwrite(alpha_edge_PATH + 'B' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
         # cv2.imwrite(alpha_edge_PATH + 'O' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
-        cv2.imwrite(num_edge_PATH + '3' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(num_edge_PATH + '3' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
         # cv2.imwrite(num_edge_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
 
         cv2.imshow('plate_view', plate_view)
@@ -201,7 +205,7 @@ class PlatePull:
 
         avg_y = int(avg_y/4)
         avg_x = int(avg_x/4)
-
+        tl = tr = bl = br = None
         for i in list_of_points:
             if (int(i[1]) < avg_y and int(i[0]) < avg_x):
                 tl = i

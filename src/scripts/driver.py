@@ -38,6 +38,7 @@ class Driver:
     DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*10)
     FIRST_STOP_SECS = 2
 
+
     ROWS = 720
     COLS = 1280
     
@@ -62,7 +63,7 @@ class Driver:
         self.is_crossing_crosswalk = False
         self.first_stopped_frames_count = 0
 
-        self.pl = PlateReader()
+        self.pl = PlateReader(script_run=False)
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -100,10 +101,12 @@ class Driver:
         hsv = DataScraper.process_img(cv_image, type="bgr")
         # cv2.imshow("hsv", hsv)
         # cv2.waitKey(3)
+
         predicted = self.mod.predict(hsv)
         pred_ind = np.argmax(predicted)
         self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
         self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
+
         # print(self.move.linear.x, self.move.angular.z)
 
         # check if red line close only when not crossing
@@ -116,12 +119,19 @@ class Driver:
             self.first_stopped_frame = True
     
         # license plate
-        lp = self.pl.get_license_plate(cv_image)
+        r_st = Driver.ROWS // 3
+        r_en = int(Driver.ROWS // 3 * 2.5)
+        c_st = -1
+        c_en = -1
+        crpd = ImageProcessor.crop(cv_image, r_st,r_en,c_st,c_en)
+        cv2.imshow("cropped", crpd)
+        cv2.waitKey(3)
+        lp = self.pl.get_license_plate(crpd)
         if lp:
             print(lp)
 
         try:
-            self.twist_pub.publish(self.move)
+            # self.twist_pub.publish(self.move)
             pass
         except CvBridgeError as e: 
             print(e)

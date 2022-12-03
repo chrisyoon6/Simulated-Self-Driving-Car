@@ -13,8 +13,6 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from skimage.metrics import mean_squared_error
 
-from pull_plate import PlatePull
-
 class ImageProcessor:
     """This class handles any image processing-related needs.
     """    
