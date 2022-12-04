@@ -143,6 +143,28 @@ class PlateReader:
         char_imgs = self.get_char_imgs(plate=plate_view)
         return self.characters(char_imgs)
 
+    def get_plate_view(self, img,count):
+        processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
+        # cv2.imshow("plate filtered", processed_im)
+        # cv2.waitKey(1)
+        c = self.get_moments(processed_im)
+        if not list(c):
+            # no contour
+            return ""
+        area = cv2.contourArea(c)
+        print("---------Area: ", area)
+        # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
+        # cv2.waitKey(3)
+        if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
+            return []
+        approx = self.approximate_plate(c, epsilon=0.1)
+        verticies = self.verticies(approx_c=approx)
+
+        if not list(verticies):
+            # no verticies (i.e. no perspec. transform)
+            return []
+        plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
+        return plate_view
 
     def characters(self, char_imgs):
         """Gets the neural network predicted characters from the images of each character.
