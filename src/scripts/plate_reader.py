@@ -27,7 +27,7 @@ font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
 AREA_LOWER_THRES = 10000
-AREA_UPPER_THRES = 50000
+AREA_UPPER_THRES = 1000000
 
 class PlateReader:
     """This class handles license plate recognition.
@@ -117,6 +117,8 @@ class PlateReader:
 
     def get_license_plate(self,img):
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
+        # cv2.imshow("plate filtered", processed_im)
+        # cv2.waitKey(1)
         c = self.get_moments(processed_im)
         if not list(c):
             # no contour
@@ -134,6 +136,10 @@ class PlateReader:
             # no verticies (i.e. no perspec. transform)
             return ""
         plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
+        
+        # cv2.imshow("plate view", cv2.cvtColor(plate_view, cv2.COLOR_BGR2GRAY))
+        # cv2.waitKey(1)
+        
         char_imgs = self.get_char_imgs(plate=plate_view)
         return self.characters(char_imgs)
 
@@ -148,7 +154,7 @@ class PlateReader:
         Returns:
             str: a string representing the license plate
         """
-
+        print("\n")
         license_plate = ''
         for index,img in enumerate(char_imgs):
             if index < 2:
@@ -157,7 +163,7 @@ class PlateReader:
             else:
                 prediction_vec = self.num_reader.predict_char(img=img)
                 license_plate += CharReader.interpret(predict_vec=prediction_vec)
-
+        print("\n")
         return license_plate
 
     def get_char_imgs(self, plate):

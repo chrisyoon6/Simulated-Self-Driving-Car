@@ -50,6 +50,7 @@ class CharReader:
             char: output character
             prob (optional): the probability of the top character prediction
         """
+        print(sorted(predict_vec, reverse=True)[:2])
         if len(predict_vec) == 26:
             out = chr(np.argmax(predict_vec)+ord('A'))
         elif len(predict_vec) == 10:

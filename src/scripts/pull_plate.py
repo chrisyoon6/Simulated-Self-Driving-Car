@@ -34,6 +34,16 @@ font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
 
+"""
+Data collection pipeline:
+for each character 0-9,A-Z:
+    1) Light, dark lighting (differ locations - i.e. dark when under tree)
+    2) Clear, blurry (distance from license plate, grass part more blurry)
+    3) differ positions of the char (left 2 if letter, right 2 if num)
+
+Around 36 * 2 * 2 * 2 = 288 frames 
+"""
+
 class PlatePull:
 
     def __init__(self):

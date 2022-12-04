@@ -37,7 +37,12 @@ class Driver:
     CROSSWALK_MSE_MOVING_THRES = 40
     DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*10)
     FIRST_STOP_SECS = 2
+    
+    PLATE_SECTION_SECS = 3
+    PLATE_DRIVE_BACK_SECS = 1
 
+    PLATE_SEC_X = 0.1
+    PLATE_SEC_Z = 0.2
 
     ROWS = 720
     COLS = 1280
@@ -63,7 +68,13 @@ class Driver:
         self.is_crossing_crosswalk = False
         self.first_stopped_frames_count = 0
 
-        self.pl = PlateReader(script_run=False)
+        self.pr = PlateReader(script_run=False)
+        self.lp = ""
+
+        self.at_plate = False
+        self.plate_frames_count = 0
+        self.plate_drive_back = False
+        self.drive_back_frames_count = 0
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -81,7 +92,6 @@ class Driver:
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.is_stopped_crosswalk:
             # print("stopped crosswalk")
-            # stopped in front of crosswalk stopped.
             if self.can_cross_crosswalk(cv_image):
                 # print("can cross")
                 self.is_stopped_crosswalk = False
@@ -99,39 +109,77 @@ class Driver:
             self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES
 
         hsv = DataScraper.process_img(cv_image, type="bgr")
-        # cv2.imshow("hsv", hsv)
-        # cv2.waitKey(3)
 
         predicted = self.mod.predict(hsv)
         pred_ind = np.argmax(predicted)
         self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
         self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
 
-        # print(self.move.linear.x, self.move.angular.z)
+        print(self.move.linear.x, self.move.angular.z)
 
         # check if red line close only when not crossing
         if not self.is_crossing_crosswalk and self.is_red_line_close(cv_image):
             self.crossing_crosswalk_count = 0 
             # print("checking for red line")
-            self.move.linear.x = 0
-            self.move.angular.z = 0
+            self.move.linear.x = 0.0
+            self.move.angular.z = 0.0
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
     
-        # license plate
-        r_st = Driver.ROWS // 3
-        r_en = int(Driver.ROWS // 3 * 2.5)
-        c_st = -1
-        c_en = -1
-        crpd = ImageProcessor.crop(cv_image, r_st,r_en,c_st,c_en)
-        cv2.imshow("cropped", crpd)
-        cv2.waitKey(3)
-        lp = self.pl.get_license_plate(crpd)
-        if lp:
-            print(lp)
-
-        try:
+        if self.plate_drive_back:
+            print("driving back")
+            self.drive_back_frames_count += 1
+            self.plate_drive_back = self.drive_back_frames_count < int(Driver.FPS*Driver.PLATE_DRIVE_BACK_SECS)
+            self.move.linear.x = -1*DataScraper.SET_X/2
+            self.move.angular.z = 0
             # self.twist_pub.publish(self.move)
+            return
+        else:
+            self.drive_back_frames_count = 0
+
+        r_st = int(Driver.ROWS/2.5)
+        r_en = -1
+        c_st = Driver.COLS // 5
+        c_en = Driver.COLS // 5*4
+        if self.at_plate:
+            c_st = -1
+            c_en = -1
+        # crped = ImageProcessor.crop(cv_image, r_st, r_en, c_st, c_en)
+        crped = ImageProcessor.crop(cv_image, r_st, r_en, -1, -1)
+        blu_crped = ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up)
+        cv2.imshow("Cropped", blu_crped)
+        cv2.waitKey(1)
+        print("-------Blue area: ", PlatePull.get_contours_area(blu_crped))
+        lp = self.pr.get_license_plate(crped)
+
+        if not self.at_plate and lp:
+            # first time at plate section
+            print("First plate")
+            self.at_plate = True
+            self.plate_drive_back = True
+            return
+        elif not self.at_plate:
+            print("not at plate")
+            self.plate_frames_count = 0
+        
+        if self.at_plate:
+            print("at plate")
+            # at plate location
+            x = round(self.move.linear.x,1)
+            z = round(self.move.angular.z, 1)
+            if x == DataScraper.SET_X:
+                self.move.linear.x /= 10.0
+            if z == DataScraper.SET_Z or z == -1*DataScraper.SET_Z:
+                self.move.angular.z /= 10.0
+            
+            self.at_plate = self.plate_frames_count < int(Driver.PLATE_SECTION_SECS*Driver.FPS)
+            self.plate_frames_count += 1
+
+        if self.lp:
+            print(self.lp)
+        try:
+            print("------------Move-------------",self.move.linear.x, self.move.angular.z)
+            self.twist_pub.publish(self.move)
             pass
         except CvBridgeError as e: 
             print(e)
