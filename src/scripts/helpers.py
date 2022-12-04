@@ -47,7 +47,7 @@ class Helpers:
 
         for filename in file_list:
             img = np.array(Image_PIL.open(os.path.join(folder, filename)))
-            cv2.imwrite(os.path.join(new_folder, filename), DataScraper.compress(img, cmp_ratio))
+            cv2.imwrite(os.path.join(new_folder, filename), DataScraper.comgipress(img, cmp_ratio))
     
 
 def compress_frames():
