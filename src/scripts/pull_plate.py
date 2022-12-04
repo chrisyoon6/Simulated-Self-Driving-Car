@@ -12,6 +12,8 @@ import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
+from geometry_msgs.msg import Twist
+
 # license plate working values
 uh = 179
 us = 10
@@ -28,6 +30,11 @@ PLATE_F = 270
 PLATE_I = 220
 PLATE_RES = (150, 298)
 
+ID_TOP = 130
+ID_BOT = 185
+ID_LEFT = 110
+ID_RIGHT = 190
+
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
@@ -38,7 +45,10 @@ class PlatePull:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber(
             "/R1/pi_camera/image_raw", Image, self.callback)
-        #self.char_reader = char_reader()
+        self.twist_sub = rospy.Subscriber("/R1/cmd_vel", Twist, self.callback_twist)
+        self.twist = (0,0,0) # lin x, ang z, lin z
+        self.can_scrape = False
+
         self.i = 0
 
     def process_stream(self, image):
@@ -68,6 +78,16 @@ class PlatePull:
 
         return  c, cx, cy
 
+    def callback_twist(self, data):
+        """Callback for the subscriber node of the /cmd_vel topic, called whenever there is a new message from this topic
+        (i.e. new Twist values).
+
+        Args:
+            data (sensor_msgs::Twist): Twist object containing the robot's current velocities
+        """        
+        self.twist = (data.linear.x, data.angular.z, data.linear.z)
+        # print(self.twist[0], self.twist[1])
+
     def callback(self, data):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
@@ -82,7 +102,7 @@ class PlatePull:
         c, cx, cy = self.get_moments(processed_im)
 
         # draws a circle at the center of mass of contour
-        disp = cv2.circle(out, (cx, cy), 2, (0, 255, 0), 2)
+        # disp = cv2.circle(out, (cx, cy), 2, (0, 255, 0), 2)
 
         # approximates the contour to a simpler shape
         epsilon = 0.1  # higher means simplify more
@@ -93,22 +113,22 @@ class PlatePull:
         pts = np.float32(self.get_coords(n)).reshape(-1, 2)
         sorted_pts = self.contour_coords_sorted(pts)
 
-        cv2.putText(disp, "tl", (int(sorted_pts[0][0]), int(
-            sorted_pts[0][1])), font, font_size, (0, 255, 0))
-        cv2.putText(disp, "tr", (int(sorted_pts[1][0]), int(
-            sorted_pts[1][1])), font, font_size, (0, 255, 0))
-        cv2.putText(disp, "bl", (int(sorted_pts[2][0]), int(
-            sorted_pts[2][1])), font, font_size, (0, 255, 0))
-        cv2.putText(disp, "br", (int(sorted_pts[3][0]), int(
-            sorted_pts[3][1])), font, font_size, (0, 255, 0))
+        # cv2.putText(disp, "tl", (int(sorted_pts[0][0]), int(
+        #     sorted_pts[0][1])), font, font_size, (0, 255, 0))
+        # cv2.putText(disp, "tr", (int(sorted_pts[1][0]), int(
+        #     sorted_pts[1][1])), font, font_size, (0, 255, 0))
+        # cv2.putText(disp, "bl", (int(sorted_pts[2][0]), int(
+        #     sorted_pts[2][1])), font, font_size, (0, 255, 0))
+        # cv2.putText(disp, "br", (int(sorted_pts[3][0]), int(
+        #     sorted_pts[3][1])), font, font_size, (0, 255, 0))
         # print(pts)
 
         # resizing to have pairs of points
         plate_view = self.transform_perspective(
             CAR_WIDTH, CAR_HEIGHT, sorted_pts, out)
 
-        cv2.drawContours(image=disp, contours=[
-                         approx], contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
+        # cv2.drawContours(image=disp, contours=[
+        #                  approx], contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
 
         cv2.imshow('plate_view', plate_view)
 
@@ -116,27 +136,58 @@ class PlatePull:
         for i in range(4):
           char_imgs.append(self.process_plate(i, plate_view))
 
+        plate_id = self.plate_id_img(plate_im=plate_view)
+
         alpha_edge_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/alpha-edge-data/plate_'
         num_edge_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/num-edge-data/plate_'
+        id_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/id-data/carID_'
 
         # cv2.imshow('char 1', char_imgs[0])
         # cv2.imshow('char 2', char_imgs[1])
         # cv2.imshow('char 3', char_imgs[2])
         # cv2.imshow('char 4', char_imgs[3])
-        r = random.random()
-        # cv2.imwrite(alpha_edge_PATH + 'B' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
-        # cv2.imwrite(alpha_edge_PATH + 'O' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
-        cv2.imwrite(num_edge_PATH + '3' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
-        # cv2.imwrite(num_edge_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
-
+        
         cv2.imshow('plate_view', plate_view)
+        # cv2.imshow('plate_id', plate_id)
         cv2.waitKey(3)
+
+        if not self.can_scrape and self.twist[2] > 0:
+            self.can_scrape = True
+            print('started scrape')
+        if self.can_scrape and self.twist[2] < 0:
+            self.can_scrape = False
+            print('stopped scrape')
+        if not self.can_scrape:
+            return
+
+        r = random.random()
+        r2 = random.random()
+        cv2.imwrite(alpha_edge_PATH + 'Z' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
+        cv2.imwrite(alpha_edge_PATH + 'Z' + str(r2) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
+        # cv2.imwrite(num_edge_PATH + '9' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
+        # cv2.imwrite(num_edge_PATH + '9' + str(r2) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
+
+        # cv2.imwrite(id_PATH + '3' + str(r) + '.png', cv2.cvtColor(plate_id, cv2.COLOR_BGR2GRAY))
+
+
+    def plate_id_img(self, plate_im):
+        """Crops and processes plate images for parking ID.
+
+        Args:
+            plate_im (Image): image of the license plate
+
+        Returns:
+            Image: processed image of the parking ID
+        """        
+        crop = plate_im[ID_TOP:ID_BOT, ID_LEFT:ID_RIGHT]
+        resize = cv2.resize(crop, PLATE_RES)
+        return resize
 
     def process_plate(self, pos, plate_im):
         """Crops and processes plate images for individual letter.
         Args: pos - the position in the license plate
               plate_im - image of license plate
-        Returns: processed image of plate"""
+        Returns: processed image the character"""
 
         crop = plate_im[PLATE_I:PLATE_F, int(
             pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
