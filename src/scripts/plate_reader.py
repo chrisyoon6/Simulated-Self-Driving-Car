@@ -21,8 +21,8 @@ CAR_HEIGHT = 320
 PLATE_F = 270
 PLATE_I = 220
 PLATE_RES = (150, 298)
-PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model1.h5'
-PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model1.h5'
+PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.h5'
+PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
@@ -85,35 +85,49 @@ class PlateReader:
         except CvBridgeError as e:
             print(e)
 
-        out = cv_image.copy()
-        processed_im = ImageProcessor.filter_plate(cv_image, ImageProcessor.plate_low, ImageProcessor.plate_up)
+        # out = cv_image.copy()
+        # processed_im = ImageProcessor.filter_plate(cv_image, ImageProcessor.plate_low, ImageProcessor.plate_up)
 
-        c = self.get_moments(processed_im)
+        # c = self.get_moments(processed_im)
 
-        if not list(c):
-            return
+        # if not list(c):
+        #     return
 
-        # cv2.imshow('contours', cv2.drawContours(cv2.resize(out, (400, 300)), c, -1, (0,0,255), 3))
+        # # cv2.imshow('contours', cv2.drawContours(cv2.resize(out, (400, 300)), c, -1, (0,0,255), 3))
+        # # cv2.waitKey(3)
+
+        # approx = self.approximate_plate(c, epsilon=0.1)
+
+        # verticies = self.verticies(approx_c=approx)
+
+        # # print("Verticies", verticies)
+
+        # if not list(verticies):
+        #     # print("No perspective transform")
+        #     return
+        # # print(verticies)
+        # # print(cv2.contourArea(c))
+        # plate_view = self.transform_perspective(
+        #     CAR_WIDTH, CAR_HEIGHT, verticies, out)
+        # cv2.imshow("plate", plate_view)
         # cv2.waitKey(3)
+        # char_imgs = self.get_char_imgs(plate=plate_view)
+        # print(self.characters(char_imgs), cv2.contourArea)
 
-        approx = self.approximate_plate(c, epsilon=0.1)
+        p_v = self.get_plate_view(cv_image)
+        if list(p_v):
+            c_img = self.get_char_imgs(p_v)
+            pred = self.characters(c_img)
+            print(pred)
+            
+        if list(p_v):
+            kernel = np.array([[-1,-1,-1], [-1,9.5,-1], [-1,-1,-1]])
+            sharper = cv2.filter2D(p_v, -1, kernel)
+            cv2.imshow("Plate view", p_v)
+            cv2.imshow("Plate view sharper", sharper)
+            cv2.waitKey(1)
 
-        verticies = self.verticies(approx_c=approx)
 
-        # print("Verticies", verticies)
-
-        if not list(verticies):
-            # print("No perspective transform")
-            return
-        # print(verticies)
-        # print(cv2.contourArea(c))
-
-        plate_view = self.transform_perspective(
-            CAR_WIDTH, CAR_HEIGHT, verticies, out)
-        cv2.imshow("plate", plate_view)
-        cv2.waitKey(3)
-        char_imgs = self.get_char_imgs(plate=plate_view)
-        print(self.characters(char_imgs), cv2.contourArea)
 
     def get_license_plate(self,img):
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
@@ -143,7 +157,7 @@ class PlateReader:
         char_imgs = self.get_char_imgs(plate=plate_view)
         return self.characters(char_imgs)
 
-    def get_plate_view(self, img,count):
+    def get_plate_view(self, img):
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
         # cv2.imshow("plate filtered", processed_im)
         # cv2.waitKey(1)
@@ -229,8 +243,7 @@ class PlateReader:
 
         Returns: processed image of plate"""
 
-        crop = plate_im[PLATE_I:PLATE_F, int(
-            pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
+        crop = plate_im[PLATE_I:PLATE_F, int(pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
         resize = cv2.resize(crop, PLATE_RES)
 
         return resize
@@ -305,7 +318,7 @@ class PlateReader:
 
 
 def main(args):
-    pr = PlateReader()
+    pr = PlateReader(script_run=True)
     rospy.init_node('image_converter', anonymous=True)
     try:
         rospy.spin()

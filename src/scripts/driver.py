@@ -15,7 +15,7 @@ from pull_plate import PlatePull
 from copy import deepcopy
 import os
 
-plate_dir = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/plate_temp"
+plate_dir = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/plate_temp2"
 
 class Driver:
     DEF_VALS = (0.5, 0.5)
@@ -39,7 +39,7 @@ class Driver:
     FPS = 20
     CROSSWALK_MSE_STOPPED_THRES = 8
     CROSSWALK_MSE_MOVING_THRES = 40
-    DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*10)
+    DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*3)
     FIRST_STOP_SECS = 2
 
     ROWS = 720
@@ -111,23 +111,31 @@ class Driver:
         self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
         self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
         
+        r_st = int(Driver.ROWS/2.5)
+        crped = ImageProcessor.crop(cv_image, row_start=r_st)
+        blu_area = PlatePull.get_contours_area(ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up))
+        print("Blue area:", blu_area)
+
+        if blu_area and blu_area[0] > 10000 and blu_area[0] < 60000:
+            self.move.linear.x = round(self.move.linear.x/5, 6) 
+            self.move.angular.z = round(self.move.angular.z/1.5, 6) 
 
         if self.is_crossing_crosswalk:
             # print("crossing")
             self.crossing_crosswalk_count += 1
-            x = round(self.move.linear.x, 2)
-            z = round(self.move.angular.z, 2)
+            x = round(self.move.linear.x, 4)
+            z = round(self.move.angular.z, 4)
             if x != 0:
-                self.move.linear.x = DataScraper.SET_X*1.5
-            if z != 0:
-                self.move.angular.z = DataScraper.SET_Z*1.5
-            # self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES  
-            red_area = PlatePull.get_contours_area(ImageProcessor.filter(cv_image, ImageProcessor.red_low, ImageProcessor.red_up))
-            print(red_area)
-            if not red_area:
-                self.is_crossing_crosswalk = False
-            else:
-                self.is_crossing_crosswalk = red_area[0] > Driver.CROSSWALK_BACK_AREA_THRES
+                self.move.linear.x = round(DataScraper.SET_X*1.5,2)
+            # if z != 0:
+            #     self.move.angular.z = round(DataScraper.SET_Z*1.5,2)
+            self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES  
+            # red_area = PlatePull.get_contours_area(ImageProcessor.filter(cv_image, ImageProcessor.red_low, ImageProcessor.red_up))
+            # print(red_area)
+            # if not red_area:
+            #     self.is_crossing_crosswalk = False
+            # else:
+            #     self.is_crossing_crosswalk = red_area[0] > Driver.CROSSWALK_BACK_AREA_THRES
 
         # print(self.move.linear.x, self.move.angular.z)
 
@@ -141,7 +149,7 @@ class Driver:
             self.first_stopped_frame = True
 
         filename = str(self.count) + ".png"
-        plate = self.pr.get_plate_view(cv_image, self.count)
+        plate = self.pr.get_plate_view(cv_image)
         if list(plate):
             cv2.imwrite(os.path.join(plate_dir, filename), plate)
             self.count += 1
@@ -171,6 +179,9 @@ class Driver:
         print("---Red Area", area)
         if not list(area):
             return False
+
+        if len(list(area)) == 1:
+            return area[0] > Driver.CROSSWALK_FRONT_AREA_THRES
 
         return area[0] > Driver.CROSSWALK_FRONT_AREA_THRES and area[1] > Driver.CROSSWALK_BACK_AREA_THRES
     
@@ -205,8 +216,8 @@ class Driver:
         
         
         mse = ImageProcessor.compare_frames(self.prev_mse_frame, img_gray)
-        # print("mse:", mse)
-        # print("first ped stopped, first ped move:" , self.first_ped_stopped, self.first_ped_moved)
+        print("mse:", mse)
+        print("first ped stopped, first ped move:" , self.first_ped_stopped, self.first_ped_moved)
         self.prev_mse_frame = img_gray
         
         if self.first_stopped_frames_count <= int(Driver.FIRST_STOP_SECS*Driver.FPS):
@@ -229,16 +240,18 @@ class Driver:
 
         return False
         
-
+from datetime import datetime
 def main(args):    
     rospy.init_node('Driver', anonymous=True)
+    start_t = datetime.now()
     dv = Driver()
     try:
         rospy.spin()
     except KeyboardInterrupt:
-            ("Shutting down")
+        ("Shutting down")
     cv2.destroyAllWindows()
     print("end")
+    print(datetime.now()-start_t)
 
 if __name__ == '__main__':
     main(sys.argv)
