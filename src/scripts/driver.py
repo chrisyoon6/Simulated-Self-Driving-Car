@@ -34,23 +34,13 @@ class Driver:
         3 : (DataScraper.SET_X, -1*DataScraper.SET_Z),
         4 : (DataScraper.SET_X, DataScraper.SET_Z)
     }
-    CROSSWALK_FRONT_AREA_THRES = 8000
+    CROSSWALK_FRONT_AREA_THRES = 5000
     CROSSWALK_BACK_AREA_THRES = 500
     FPS = 20
     CROSSWALK_MSE_STOPPED_THRES = 8
     CROSSWALK_MSE_MOVING_THRES = 40
     DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*10)
     FIRST_STOP_SECS = 2
-    
-    PLATE_SECTION_SECS = 5
-    PLATE_DRIVE_BACK_SECS = 0.5
-
-    PLATE_SEC_X = 0.1
-    PLATE_SEC_Z = 0.2
-
-    BLUE_AREA_UPPER = 50000
-    BLUE_AREA_LOWER = 8000
-    BLUE_AREA_DRIVE_BACK = 15000
 
     ROWS = 720
     COLS = 1280
@@ -98,11 +88,15 @@ class Driver:
             data (sensor_msgs::Image): The image recieved from the robot's camera
         """        
         # cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
+
+        print("driving")
+        
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        # print(Driver.has_red_line(cv_image))
         if self.is_stopped_crosswalk:
-            # print("stopped crosswalk")
+            print("stopped crosswalk")
             if self.can_cross_crosswalk(cv_image):
-                # print("can cross")
+                print("can cross")
                 self.is_stopped_crosswalk = False
                 self.prev_mse_frame = None
                 self.first_ped_stopped = False
@@ -110,33 +104,37 @@ class Driver:
                 self.is_crossing_crosswalk = True
             return
 
-        # print("driving")
         hsv = DataScraper.process_img(cv_image, type="bgr")
 
         predicted = self.mod.predict(hsv)
         pred_ind = np.argmax(predicted)
         self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
         self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
+        
 
         if self.is_crossing_crosswalk:
             # print("crossing")
+            self.crossing_crosswalk_count += 1
             x = round(self.move.linear.x, 2)
             z = round(self.move.angular.z, 2)
             if x != 0:
-                self.move.linear.x = DataScraper.SET_X*1.2
+                self.move.linear.x = DataScraper.SET_X*1.5
             if z != 0:
-                self.move.angular.z = DataScraper.SET_Z*1.2
-                
-            self.crossing_crosswalk_count += 1
-            self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES
-        
+                self.move.angular.z = DataScraper.SET_Z*1.5
+            # self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES  
+            red_area = PlatePull.get_contours_area(ImageProcessor.filter(cv_image, ImageProcessor.red_low, ImageProcessor.red_up))
+            print(red_area)
+            if not red_area:
+                self.is_crossing_crosswalk = False
+            else:
+                self.is_crossing_crosswalk = red_area[0] > Driver.CROSSWALK_BACK_AREA_THRES
 
-        print(self.move.linear.x, self.move.angular.z)
+        # print(self.move.linear.x, self.move.angular.z)
 
         # check if red line close only when not crossing
         if not self.is_crossing_crosswalk and self.is_red_line_close(cv_image):
             self.crossing_crosswalk_count = 0 
-            # print("checking for red line")
+            print("checking for red line")
             self.move.linear.x = 0.0
             self.move.angular.z = 0.0
             self.is_stopped_crosswalk = True
@@ -149,58 +147,6 @@ class Driver:
             self.count += 1
             cv2.imshow("Plate", plate)
             cv2.waitKey(1)
-
-        # r_st = int(Driver.ROWS/2.5)
-        # r_en = -1
-        # crped = ImageProcessor.crop(cv_image, r_st, r_en, -1, -1)
-        # blu_crped = ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up)
-        # # cv2.imshow("Cropped", blu_crped)
-        # # cv2.waitKey(1)
-        # blu_area = PlatePull.get_contours_area(blu_crped)
-        # if not list(blu_area):
-        #     blu_area = 0
-        # else:
-        #     blu_area = max(blu_area)
-        # print("-------Blue area: ", blu_area)
-
-        # if self.plate_drive_back:
-        #     print("driving back")
-        #     self.drive_back_frames_count += 1
-        #     # self.plate_drive_back = self.drive_back_frames_count < int(Driver.FPS*Driver.PLATE_DRIVE_BACK_SECS)
-        #     self.plate_drive_back = blu_area > Driver.BLUE_AREA_DRIVE_BACK 
-        #     self.move.linear.x = -1*DataScraper.SET_X
-        #     self.move.angular.z = 0
-        #     self.twist_pub.publish(self.move)
-        #     return
-        # else:
-        #     self.drive_back_frames_count = 0
-        
-        # if not self.at_plate and blu_area > Driver.BLUE_AREA_UPPER:
-        #     self.plate_drive_back = True
-        #     self.at_plate = True
-        #     print("first plate")
-        
-        # if self.at_plate:
-        #     lp = self.pr.get_license_plate(crped)
-
-        #     print("at plate")
-        #     # at plate location
-        #     x = round(self.move.linear.x,1)
-        #     z = round(self.move.angular.z, 1)
-        #     if x == DataScraper.SET_X:
-        #         self.move.linear.x /= 10.0
-        #     if z == DataScraper.SET_Z or z == -1*DataScraper.SET_Z:
-        #         self.move.angular.z /= 10.0
-            
-        #     # self.at_plate = self.plate_frames_count < int(Driver.PLATE_SECTION_SECS*Driver.FPS)
-        #     # self.at_plate = blu_area > Driver.BLUE_AREA_LOWER and blu_area < Driver.BLUE_AREA_UPPER
-        #     # self.at_plate = blu_area < Driver.BLUE_AREA_UPPER
-        #     self.at_plate = blu_area > Driver.BLUE_AREA_LOWER
-        #     print(blu_area)
-        #     # self.plate_frames_count += 1
-        # else:
-        #     print("not at plate")
-        #     self.plate_frames_count = 0
 
         try:
             print("------------Move-------------",self.move.linear.x, self.move.angular.z)
@@ -222,12 +168,17 @@ class Driver:
         # cv2.imshow('script_view', red_filt)
         # cv2.waitKey(3)
         area = PlatePull.get_contours_area(red_filt,2)
-        # print("Area", area)
+        print("---Red Area", area)
         if not list(area):
             return False
 
         return area[0] > Driver.CROSSWALK_FRONT_AREA_THRES and area[1] > Driver.CROSSWALK_BACK_AREA_THRES
     
+    @staticmethod
+    def has_red_line(img):
+        red_filt = ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up)
+        return ImageProcessor.compare_frames(red_filt, np.zeros(red_filt.shape))
+
     def can_cross_crosswalk(self, img): 
         """Determines whether or not the robot can drive past the crosswalk. Only to be called when 
         it is stopped in front of the red line. 
@@ -248,7 +199,6 @@ class Driver:
         """        
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
-
         if self.prev_mse_frame is None:
             self.prev_mse_frame = img_gray
             return False

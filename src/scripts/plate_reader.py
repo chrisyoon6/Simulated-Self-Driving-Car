@@ -124,7 +124,7 @@ class PlateReader:
             # no contour
             return ""
         area = cv2.contourArea(c)
-        print("---------Area: ", area)
+        # print("---------Area: ", area)
         # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
         # cv2.waitKey(3)
         if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
@@ -152,7 +152,7 @@ class PlateReader:
             # no contour
             return ""
         area = cv2.contourArea(c)
-        print("---------Area: ", area)
+        # print("---------Area: ", area)
         # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
         # cv2.waitKey(3)
         if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
