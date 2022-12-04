@@ -56,9 +56,9 @@ def compress_frames():
     Helpers.compress_all_data(src_path, target_path, 0.5)
 
 def main():
-    path = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3-compressed/hsv_0_0_1.0.png"
-    img = np.array(Image_PIL.open(path))
-    print(img.shape)
+    path = "/home/fizzer/ros_ws/src/id-data/"
+    output_path = "/home/fizzer/ros_ws/src/id-data-compressed/"
+    Helpers.compress_all_data(path, output_path, 0.1)
     pass
 
 if __name__ == "__main__":
