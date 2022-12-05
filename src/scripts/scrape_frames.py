@@ -17,8 +17,10 @@ import numpy as np
 # import keyboard
 
 class DataScraper:
-    SET_X = 0.5-0.15
-    SET_Z = 1.0-0.1
+    SET_X = 0.5-0.2
+    SET_Z = 1.0-0.12
+    # SET_X = 0.5-0.15
+    # SET_Z = 1.0-0.1
     ERR_X = 0.1
     ERR_Z = 0.2
     WIDTH, HEIGHT = (1280, 720)

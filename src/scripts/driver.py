@@ -14,6 +14,7 @@ from plate_reader import PlateReader
 from pull_plate import PlatePull
 from copy import deepcopy
 import os
+import time
 
 plate_dir = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/plate_temp2"
 
@@ -39,7 +40,7 @@ class Driver:
     FPS = 20
     CROSSWALK_MSE_STOPPED_THRES = 8
     CROSSWALK_MSE_MOVING_THRES = 40
-    DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*3)
+    DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*2)
     FIRST_STOP_SECS = 2
 
     ROWS = 720
@@ -76,6 +77,7 @@ class Driver:
         self.count = 0
 
         self.lp_dict = {}
+        self.start = time.time()
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -91,8 +93,13 @@ class Driver:
         """        
         # cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
 
-        print("driving")
+        if (time.time() - self.start) > 230:
+            print(self.lp_dict)
+            print("")
+            return 
         
+        print("driving")
+
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         # print(Driver.has_red_line(cv_image))
         if self.is_stopped_crosswalk:
@@ -150,7 +157,13 @@ class Driver:
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
 
-        
+        pred_lp, pred_vecs = self.pr.prediction_data(cv_image)
+        if pred_lp:
+            if not pred_lp in self.lp_dict:
+                self.lp_dict[pred_lp] = 1
+            else:
+                self.lp_dict[pred_lp] += 1
+
         # filename = str(self.count) + ".png"
         # plate = self.pr.get_plate_view(cv_image)
         # if list(plate):
@@ -243,10 +256,8 @@ class Driver:
 
         return False
         
-from datetime import datetime
 def main(args):    
     rospy.init_node('Driver', anonymous=True)
-    start_t = datetime.now()
     dv = Driver()
     try:
         rospy.spin()
@@ -254,7 +265,6 @@ def main(args):
         ("Shutting down")
     cv2.destroyAllWindows()
     print("end")
-    print(datetime.now()-start_t)
 
 if __name__ == '__main__':
     main(sys.argv)

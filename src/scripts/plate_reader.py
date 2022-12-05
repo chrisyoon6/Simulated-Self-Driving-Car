@@ -134,45 +134,20 @@ class PlateReader:
         #     cv2.imshow("Plate view sharper", sharper)
         #     cv2.waitKey(1)
         lp, p_vs = self.prediction_data(cv_image)
-        print(lp)
-        for p in p_vs:
-            print(p)
-        print("")
+        if lp:
+            print(lp)
+            for p in p_vs:
+                print(p)
+            print("")
 
     def prediction_data(self, img):
         p_v = self.get_plate_view(img)
         if list(p_v):
             c_img = self.get_char_imgs(p_v)
-            pred,pred_vecs = self.characters(c_img, get_pred_vec=True)
+            pred, pred_vecs = self.characters(c_img, get_pred_vec=True)
             return pred, pred_vecs
-
-    def get_license_plate(self,img):
-        processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
-        # cv2.imshow("plate filtered", processed_im)
-        # cv2.waitKey(1)
-        c = self.get_moments(processed_im)
-        if not list(c):
-            # no contour
-            return ""
-        area = cv2.contourArea(c)
-        # print("---------Area: ", area)
-        # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
-        # cv2.waitKey(3)
-        if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
-            return ""
-        approx = self.approximate_plate(c, epsilon=0.1)
-        verticies = self.verticies(approx_c=approx)
-
-        if not list(verticies):
-            # no verticies (i.e. no perspec. transform)
-            return ""
-        plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
-        
-        # cv2.imshow("plate view", cv2.cvtColor(plate_view, cv2.COLOR_BGR2GRAY))
-        # cv2.waitKey(1)
-        
-        char_imgs = self.get_char_imgs(plate=plate_view)
-        return self.characters(char_imgs)
+        else:
+            return "", []
 
     def get_plate_view(self, img):
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
@@ -218,10 +193,10 @@ class PlateReader:
             else:
                 prediction_vec = self.num_reader.predict_char(img=img)
                 license_plate += CharReader.interpret(predict_vec=prediction_vec)
-            pred_vecs.append(prediction_vec)
+            pred_vecs.append(np.round(np.array(prediction_vec), 3))
         print("\n")
         if get_pred_vec:
-            return license_plate, pred_vecs
+            return license_plate, np.array(pred_vecs)
         else:
             return license_plate
 
@@ -245,10 +220,13 @@ class PlateReader:
         n = approx_c.ravel()
         pts = np.float32(self.get_coords(n)).reshape(-1, 2)
         sorted_pts = PlateReader.contour_coords_sorted(pts)
-        
-        if 0 in sorted_pts[:,0] or COLS-1 in sorted_pts[:,0]:
+        if not list(sorted_pts):
             return []
-        if 0 in sorted_pts[:,1] or ROWS-1 in sorted_pts[:,1]:
+
+        sorted_pts_np = np.array(sorted_pts)
+        if 0 in sorted_pts_np[:,0] or COLS-1 in sorted_pts_np[:,0]:
+            return []
+        if 0 in sorted_pts_np[:,1] or ROWS-1 in sorted_pts_np[:,1]:
             return []
         return sorted_pts
 
