@@ -159,12 +159,13 @@ class PlatePull:
 
         alpha_edge_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/alpha-edge-data/plate_'
         num_edge_PATH = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/num-edge-data/plate_'
+        id_PATH = '/home/fizzer/ros_ws/src/id-data/carID_'
 
         # cv2.imshow('char 1', char_imgs[0])
         # cv2.imshow('char 2', char_imgs[1])
         # cv2.imshow('char 3', char_imgs[2])
         # cv2.imshow('char 4', char_imgs[3])
-        # r = random.random()
+        r = random.random()
         # cv2.imwrite(alpha_edge_PATH + 'B' + str(r) + '.png', cv2.cvtColor(char_imgs[0], cv2.COLOR_BGR2GRAY))
         # cv2.imwrite(alpha_edge_PATH + 'O' + str(r) + '.png', cv2.cvtColor(char_imgs[1], cv2.COLOR_BGR2GRAY))        
         # cv2.imwrite(num_edge_PATH + '3' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
@@ -181,6 +182,7 @@ class PlatePull:
         print(id)
         print(prediction_vec)
 
+        cv2.imwrite(id_PATH + '1' + str(r) + '.png', cv2.cvtColor(plate_id, cv2.COLOR_BGR2GRAY))
 
         cv2.imshow('parking_id', plate_id)
         cv2.waitKey(3)
