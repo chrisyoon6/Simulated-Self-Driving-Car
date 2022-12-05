@@ -28,10 +28,14 @@ class CharReader:
     def predict_char(self, img, id=False):
         """Model prediction vector for a given image.
 
+        Args:
+            img (cv::Mat): grayscaled image of a character.
+            id (bool, optional): True if the character is for the top ID. Defaults to False.
+
         Returns:
             List: the prediction vector for each possible prediction outcome
-        """
-        if (id):
+        """        
+        if id:
             img = self.pre_processing_for_id(img)
         else:
             img = self.pre_processing_for_model(img)
@@ -51,7 +55,7 @@ class CharReader:
 
         Returns:
             char: output character
-            prob (optional): the probability of the top character prediction
+            prob (float, optional): the probability of the top character prediction
         """
         print(sorted(predict_vec, reverse=True)[:2])
         if len(predict_vec) == 26:

@@ -15,6 +15,7 @@ from pull_plate import PlatePull
 from copy import deepcopy
 import os
 import time
+import matplotlib.pyplot as plt
 
 plate_dir = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/plate_temp2"
 
@@ -38,14 +39,27 @@ class Driver:
     CROSSWALK_FRONT_AREA_THRES = 5000
     CROSSWALK_BACK_AREA_THRES = 500
     FPS = 20
-    CROSSWALK_MSE_STOPPED_THRES = 8
+    CROSSWALK_MSE_STOPPED_THRES = 9
     CROSSWALK_MSE_MOVING_THRES = 40
-    DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*2)
+    DRIVE_PAST_CROSSWALK_FRAMES = int(FPS*3)
     FIRST_STOP_SECS = 2
 
     ROWS = 720
     COLS = 1280
     
+    SLOW_DOWN_AREA_LOWER = 9000
+    SLOW_DOWN_AREA_UPPER = 60000
+
+    SLOW_DOWN_AREA_FRAMES = 5  # consecutive
+
+    STRAIGHT_DEGS_THRES = 0.5
+    RED_INTERSEC_PIX = 435
+    RED_INTERSEC_PIX_THRES = 5
+    """
+    TODOS:
+    - increase LP accuracy - mixing LA26 with LX26
+    - inner loop: find ways to be perpendicular with red line, build CNN
+    """
     def __init__(self):
         """Creates a Driver object. Responsible for driving the robot throughout the track. 
         """            
@@ -74,10 +88,19 @@ class Driver:
         self.plate_drive_back = False
         self.drive_back_frames_count = 0
 
+        self.num_fast_frames = 0
+        
         self.count = 0
-
+        self.num_laps = 0
         self.lp_dict = {}
+        self.id_dict = {}
+        self.id_stats_dict = {}
+
+        self.num_crosswalks = 0
+
         self.start = time.time()
+        self.has_ended = False
+        self.acquire_lp = False
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -93,14 +116,47 @@ class Driver:
         """        
         # cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
 
-        if (time.time() - self.start) > 230:
-            print(self.lp_dict)
-            print("")
-            return 
-        
-        print("driving")
-
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
+        if self.has_ended:
+            # straighen
+            z_st, x_st = self.is_straightened(cv_image)
+            z = 0
+            x = 0
+            z = -1.0*z_st / 10
+            x = -1.0*x_st / 5
+            self.move.angular.z = z
+            if z == 0:
+                self.move.linear.x = x
+            print("------------Move-------------",self.move.linear.x, self.move.angular.z)
+            self.twist_pub.publish(self.move)
+            return
+        if (time.time() - self.start) > 200 or self.num_crosswalks > 0:
+            min_prob = 0.5
+            for id in self.id_dict:
+                val = 1.0*self.id_stats_dict[id][1] / self.id_stats_dict[id][0]
+                print(self.id_stats_dict[id])
+                self.id_stats_dict[id] = (self.id_stats_dict[id][0], val)
+                print(id, self.id_dict[id])
+                print(id, self.id_stats_dict[id][0])
+            print("------------")
+            for k in self.lp_dict:
+                val = self.lp_dict[k][1]*1.0 / self.lp_dict[k][0]
+                flg = False
+                self.lp_dict[k] = (self.lp_dict[k][0], val)
+                print(k, self.lp_dict[k][0], val)
+                print("----")
+                for p in self.lp_dict[k][1]:
+                    if np.max(p) < min_prob:
+                        flg = True
+                        break
+                if not flg:
+                    print(self.lp_dict[k])
+            print("")
+            print(self.get_plate_results())
+            self.has_ended = True
+            return 
+
         # print(Driver.has_red_line(cv_image))
         if self.is_stopped_crosswalk:
             print("stopped crosswalk")
@@ -111,6 +167,7 @@ class Driver:
                 self.first_ped_stopped = False
                 self.first_ped_moved = False
                 self.is_crossing_crosswalk = True
+                self.num_crosswalks += 1
             return
 
         hsv = DataScraper.process_img(cv_image, type="bgr")
@@ -125,9 +182,16 @@ class Driver:
         blu_area = PlatePull.get_contours_area(ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up))
         print("Blue area:", blu_area)
 
-        if blu_area and blu_area[0] > 10000 and blu_area[0] < 60000:
+        if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER or self.num_fast_frames < Driver.SLOW_DOWN_AREA_FRAMES:
             self.move.linear.x = round(self.move.linear.x/5, 6) 
             self.move.angular.z = round(self.move.angular.z/1.5, 6) 
+            if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER:
+                self.num_fast_frames = 0    
+            else:
+                self.num_fast_frames += 1
+            self.acquire_lp = True
+        else:
+            self.acquire_lp = False
 
         if self.is_crossing_crosswalk:
             # print("crossing")
@@ -135,7 +199,7 @@ class Driver:
             x = round(self.move.linear.x, 4)
             z = round(self.move.angular.z, 4)
             if x != 0:
-                self.move.linear.x = round(DataScraper.SET_X*1.5,2)
+                self.move.linear.x = round(DataScraper.SET_X*1, 2)
             # if z != 0:
             #     self.move.angular.z = round(DataScraper.SET_Z*1.5,2)
             self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES  
@@ -157,21 +221,36 @@ class Driver:
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
 
-        pred_lp, pred_vecs = self.pr.prediction_data(cv_image)
-        if pred_lp:
-            if not pred_lp in self.lp_dict:
-                self.lp_dict[pred_lp] = 1
-            else:
-                self.lp_dict[pred_lp] += 1
+        pred_id, pred_id_vec = self.pr.prediction_data_id(cv_image)
+        if pred_id:
+            pred_lp, pred_vecs = self.pr.prediction_data_license(cv_image)
+            if pred_lp and self.acquire_lp:
+                # print(self.id_dict)
+                # id -> set[license plates]
+                if not pred_id in self.id_dict:
+                    self.id_dict[pred_id] = set()
+                self.id_dict[pred_id].add(pred_lp)
 
-        # filename = str(self.count) + ".png"
-        # plate = self.pr.get_plate_view(cv_image)
-        # if list(plate):
-        #     cv2.imwrite(os.path.join(plate_dir, filename), plate)
-        #     self.count += 1
-        #     cv2.imshow("Plate", plate)
-        #     cv2.waitKey(1)
+                # id -> (freq, prediction vector)
+                if not pred_id in self.id_stats_dict:
+                    self.id_stats_dict[pred_id] = (1,pred_id_vec)
+                else:
+                    f = self.id_stats_dict[pred_id][0] + 1
+                    p_id_v = self.id_stats_dict[pred_id][1] + pred_id_vec
+                    self.id_stats_dict[pred_id] = (f, p_id_v)
+
+                # license plates -> (freq, prediction vector)
+                if not pred_lp in self.lp_dict:
+                    self.lp_dict[pred_lp] = (1, pred_vecs)
+                else:
+                    freq = self.lp_dict[pred_lp][0] + 1
+                    p_v = self.lp_dict[pred_lp][1] + pred_vecs
+                    self.lp_dict[pred_lp] = (freq, p_v)
         
+                # print(pred_id, pred_id_vec)
+                # print(pred_lp, pred_vecs[1])
+                print("")
+
         try:
             print("------------Move-------------",self.move.linear.x, self.move.angular.z)
             self.twist_pub.publish(self.move)
@@ -179,6 +258,60 @@ class Driver:
         except CvBridgeError as e: 
             print(e)
     
+    def is_straightened(self, img):
+        """ Determines whether or not the robot is straightened to the red line
+
+        Args:
+            img (cv::Mat): Raw image data
+
+        Returns:
+            int: -2 if error state, -1 if currently to the left, 0 if straight within thres, 1 if currently to the right
+        """        
+        red_im = ImageProcessor.filter_red(img)
+        edges = cv2.Canny(red_im,50,150,apertureSize = 3)
+        minLineLength=100
+        lines = cv2.HoughLinesP(image=edges,rho=1,theta=np.pi/180, threshold=100,lines=np.array([]), minLineLength=minLineLength,maxLineGap=80)
+        if list(lines):
+            x1,y1,x2,y2 = lines[0][0].tolist()
+            deg = 0
+            if x1 == x2:
+                print("--- x1=x2 ---",x1,x2)
+                return (-2,-2)
+            deg = np.rad2deg(np.arctan((y2-y1)/(x2-x1)))
+            print(deg)
+            ang_state = 0
+            lin_state = 0
+            if abs(deg) < Driver.STRAIGHT_DEGS_THRES:
+                ang_state = 0
+            elif deg < 0:
+                ang_state = -1
+            else:
+                ang_state = 1
+            y = (y1+y2)/2.0
+            y_tgt = Driver.RED_INTERSEC_PIX
+            y_thres = Driver.RED_INTERSEC_PIX_THRES
+            if y < y_tgt + y_thres and y > y_tgt - y_thres:
+                lin_state = 0
+            elif y < y_tgt:
+                lin_state = -1
+            else:
+                lin_state = 1
+            return (ang_state, lin_state)
+        return (-2,-2)
+
+    def get_plate_results(self):
+        combos = {}
+        for id in self.id_dict:
+            best_lp = None
+            best_lp_freqs = 0
+            for lp in self.id_dict[id]:
+                # highest freqs
+                if best_lp_freqs < self.lp_dict[lp][0]:
+                    best_lp_freqs = self.lp_dict[lp][0]
+                    best_lp = lp
+                combos[id] = best_lp
+        return combos
+
     def is_red_line_close(self, img):  
         """Determines whether or not the robot is close to the red line.
 
