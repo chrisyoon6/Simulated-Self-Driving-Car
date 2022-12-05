@@ -35,6 +35,7 @@ class Helpers:
             cv2.imwrite(os.path.join(new_folder, new_filename), img)
             count += 1
 
+    @staticmethod
     def compress_all_data(folder, new_folder, cmp_ratio):
         """Compresses all data from a folder and saves it to another folder.
 

@@ -75,6 +75,8 @@ class Driver:
 
         self.count = 0
 
+        self.lp_dict = {}
+
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
         This callback is called when a new message has arrived to the /image_raw topic (i.e. a new frame from the camera).
@@ -148,14 +150,15 @@ class Driver:
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
 
-        filename = str(self.count) + ".png"
-        plate = self.pr.get_plate_view(cv_image)
-        if list(plate):
-            cv2.imwrite(os.path.join(plate_dir, filename), plate)
-            self.count += 1
-            cv2.imshow("Plate", plate)
-            cv2.waitKey(1)
-
+        
+        # filename = str(self.count) + ".png"
+        # plate = self.pr.get_plate_view(cv_image)
+        # if list(plate):
+        #     cv2.imwrite(os.path.join(plate_dir, filename), plate)
+        #     self.count += 1
+        #     cv2.imshow("Plate", plate)
+        #     cv2.waitKey(1)
+        
         try:
             print("------------Move-------------",self.move.linear.x, self.move.angular.z)
             self.twist_pub.publish(self.move)

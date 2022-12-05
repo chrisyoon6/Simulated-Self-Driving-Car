@@ -21,13 +21,16 @@ CAR_HEIGHT = 320
 PLATE_F = 270
 PLATE_I = 220
 PLATE_RES = (150, 298)
-PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.h5'
+PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.1.h5'
 PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
 AREA_LOWER_THRES = 10000
 AREA_UPPER_THRES = 1000000
+
+ROWS = 720
+COLS = 1280
 
 class PlateReader:
     """This class handles license plate recognition.
@@ -114,20 +117,30 @@ class PlateReader:
         # char_imgs = self.get_char_imgs(plate=plate_view)
         # print(self.characters(char_imgs), cv2.contourArea)
 
-        p_v = self.get_plate_view(cv_image)
+        # p_v = self.get_plate_view(cv_image)
+        # if list(p_v):
+        #     c_img = self.get_char_imgs(p_v)
+        #     pred = self.characters(c_img)
+        #     print(pred)
+
+        # if list(p_v):
+        #     kernel = np.array([[-1,-1,-1], [-1,9.5,-1], [-1,-1,-1]])
+        #     sharper = cv2.filter2D(p_v, -1, kernel)
+        #     cv2.imshow("Plate view", p_v)
+        #     cv2.imshow("Plate view sharper", sharper)
+        #     cv2.waitKey(1)
+        lp, p_vs = self.prediction_data(cv_image)
+        print(lp)
+        for p in p_vs:
+            print(p)
+        print("")
+
+    def prediction_data(self, img):
+        p_v = self.get_plate_view(img)
         if list(p_v):
             c_img = self.get_char_imgs(p_v)
-            pred = self.characters(c_img)
-            print(pred)
-            
-        if list(p_v):
-            kernel = np.array([[-1,-1,-1], [-1,9.5,-1], [-1,-1,-1]])
-            sharper = cv2.filter2D(p_v, -1, kernel)
-            cv2.imshow("Plate view", p_v)
-            cv2.imshow("Plate view sharper", sharper)
-            cv2.waitKey(1)
-
-
+            pred,pred_vecs = self.characters(c_img, get_pred_vec=True)
+            return pred, pred_vecs
 
     def get_license_plate(self,img):
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
@@ -173,14 +186,15 @@ class PlateReader:
             return []
         approx = self.approximate_plate(c, epsilon=0.1)
         verticies = self.verticies(approx_c=approx)
-
+        
         if not list(verticies):
             # no verticies (i.e. no perspec. transform)
             return []
+        print("VERTICIES:", verticies)
         plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
         return plate_view
 
-    def characters(self, char_imgs):
+    def characters(self, char_imgs, get_pred_vec=False):
         """Gets the neural network predicted characters from the images of each character.
 
         Args:
@@ -190,6 +204,7 @@ class PlateReader:
         Returns:
             str: a string representing the license plate
         """
+        pred_vecs = []
         print("\n")
         license_plate = ''
         for index,img in enumerate(char_imgs):
@@ -199,8 +214,12 @@ class PlateReader:
             else:
                 prediction_vec = self.num_reader.predict_char(img=img)
                 license_plate += CharReader.interpret(predict_vec=prediction_vec)
+            pred_vecs.append(prediction_vec)
         print("\n")
-        return license_plate
+        if get_pred_vec:
+            return license_plate, pred_vecs
+        else:
+            return license_plate
 
     def get_char_imgs(self, plate):
         """Gets the verticies of a simple shape such as a square, rectangle, etc.
@@ -222,6 +241,11 @@ class PlateReader:
         n = approx_c.ravel()
         pts = np.float32(self.get_coords(n)).reshape(-1, 2)
         sorted_pts = PlateReader.contour_coords_sorted(pts)
+        
+        if 0 in sorted_pts[:,0] or COLS-1 in sorted_pts[:,0]:
+            return []
+        if 0 in sorted_pts[:,1] or ROWS-1 in sorted_pts[:,1]:
+            return []
         return sorted_pts
 
     def approximate_plate(self, contour, epsilon):
