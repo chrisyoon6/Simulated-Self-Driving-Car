@@ -23,6 +23,10 @@ PLATE_I = 220
 PLATE_RES = (150, 298)
 PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.1.h5'
 PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
+
+# PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model2.h5'
+# PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model2.h5'
+
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
 
