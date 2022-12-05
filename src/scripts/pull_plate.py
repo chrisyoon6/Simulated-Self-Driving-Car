@@ -11,7 +11,7 @@ import random
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-
+from char_reader import CharReader
 from plate_reader import PlateReader
 
 # license plate working values
@@ -29,6 +29,14 @@ CAR_HEIGHT = 320
 PLATE_F = 270
 PLATE_I = 220
 PLATE_RES = (150, 298)
+
+ID_TOP = 130
+ID_BOT = 185
+ID_LEFT = 110
+ID_RIGHT = 190
+
+PATH_PARKING_ID = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/id_model1.h5'
+
 
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
@@ -50,7 +58,7 @@ class PlatePull:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber(
             "/R1/pi_camera/image_raw", Image, self.callback)
-        #self.char_reader = char_reader()
+        self.id_reader = CharReader(PATH_PARKING_ID)
         self.i = 0
 
     def process_stream(self, image):
@@ -143,7 +151,7 @@ class PlatePull:
         cv2.drawContours(image=disp, contours=[
                          approx], contourIdx=-1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
 
-        cv2.imshow('plate_view', plate_view)
+        # cv2.imshow('plate_view', plate_view)
 
         char_imgs = []
         for i in range(4):
@@ -162,7 +170,19 @@ class PlatePull:
         # cv2.imwrite(num_edge_PATH + '3' + str(r) + '.png', cv2.cvtColor(char_imgs[2], cv2.COLOR_BGR2GRAY))
         # cv2.imwrite(num_edge_PATH + '8' + str(r) + '.png', cv2.cvtColor(char_imgs[3], cv2.COLOR_BGR2GRAY))
 
-        cv2.imshow('plate_view', plate_view)
+        # cv2.imshow('plate_view', plate_view)
+        plate_id = self.plate_id_img(plate_im=plate_view)
+        print("\n")
+        print("\n")
+        print("\n")
+        prediction_vec = self.id_reader.predict_char(img=plate_id, id=True)
+        id = ''
+        id += CharReader.interpret(predict_vec=prediction_vec)
+        print(id)
+        print(prediction_vec)
+
+
+        cv2.imshow('parking_id', plate_id)
         cv2.waitKey(3)
 
     def process_plate(self, pos, plate_im):
@@ -175,6 +195,17 @@ class PlatePull:
             pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
         resize = cv2.resize(crop, PLATE_RES)
 
+        return resize
+
+    def plate_id_img(self, plate_im):
+        """Crops and processes plate images for parking ID.
+        Args:
+            plate_im (Image): image of the license plate
+        Returns:
+            Image: processed image of the parking ID
+        """        
+        crop = plate_im[ID_TOP:ID_BOT, ID_LEFT:ID_RIGHT]
+        resize = cv2.resize(crop, PLATE_RES)
         return resize
 
     def transform_perspective(self, width, height, sorted_pts, image):
