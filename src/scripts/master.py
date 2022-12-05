@@ -9,10 +9,6 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
-from hsv_view import image_converter
-from plate_reader import PlateReader
-from char_reader import char_reader
-
 
 class Master:
 
@@ -42,10 +38,12 @@ class Master:
         4: send stop signal
         """
 
-        if (self.counter == 10): 
+        if (self.counter < 10):
+            pass
+        elif (self.counter == 10): 
             print(self.counter)
             self.license_pub.publish(String('TeamYoonifer,multi21,0,AA00'))
-        elif (self.counter == 40): 
+        elif (self.counter == 4000):  #arbitrary number
             self.license_pub.publish(String('TeamYoonifer,multi21,-1,AA00'))
         else:
             try:
@@ -53,11 +51,24 @@ class Master:
             except CvBridgeError as e:
                 print(e)
 
-            self.out_vel.linear.x = 0
-            self.out_vel.angular.z = -0.4
+            # if (self.counter < 30):
+            #     self.out_vel.linear.x = 0.35
+            #     self.out_vel.angular.z = 0.7
+            if (self.counter < 20):
+                self.out_vel.linear.x = 0.7
+                self.out_vel.angular.z = 1.4
+            # elif (self.counter < 42):
+            #     self.out_vel.linear.x = 0
+            #     self.out_vel.angular.z = 1.4
+            elif (self.counter < 26):
+                self.out_vel.linear.x = 0
+                self.out_vel.angular.z = 2.8
+            else:
+                self.out_vel.linear.x = 0
+                self.out_vel.angular.z = 0
 
             self.vel_pub.publish(self.out_vel)
-
+            print(self.counter)
             cv2.waitKey(3)
         self.counter += 1
 

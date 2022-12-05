@@ -25,13 +25,16 @@ class CharReader:
         self.model = models.load_model(path)
         print(type(self.model))
 
-    def predict_char(self, img):
+    def predict_char(self, img, id=False):
         """Model prediction vector for a given image.
 
         Returns:
             List: the prediction vector for each possible prediction outcome
         """
-        img = self.pre_processing_for_model(img)
+        if (id):
+            img = self.pre_processing_for_id(img)
+        else:
+            img = self.pre_processing_for_model(img)
         img = img/255
         img_aug = np.expand_dims(np.expand_dims(img, axis=-1), axis=0)
         y_predict = self.model.predict(img_aug)[0]
@@ -55,6 +58,8 @@ class CharReader:
             out = chr(np.argmax(predict_vec)+ord('A'))
         elif len(predict_vec) == 10:
             out = chr(np.argmax(predict_vec)+ord('0'))
+        elif len(predict_vec) == 8:
+            out = chr(np.argmax(predict_vec)+ord('1'))
         else:
             print('Invalid prediction vector')
             return
@@ -64,6 +69,22 @@ class CharReader:
             return out, prob
 
         return out
+
+    def pre_processing_for_id(self, im):
+        """EXACT same as pre_processing_for_model
+        but with size (15,30)
+
+        Args:
+            im (image): input image with a character to be read
+
+        Returns:
+            image: formatted image
+        """
+
+        resize = cv2.resize(im, (15, 30))
+        gray = cv2.cvtColor(resize, cv2.COLOR_BGR2GRAY)
+
+        return gray
 
     def pre_processing_for_model(self, im):
         """Formats image to dimensions for use in neural net

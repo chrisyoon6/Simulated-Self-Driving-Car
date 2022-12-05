@@ -21,11 +21,18 @@ CAR_HEIGHT = 320
 PLATE_F = 270
 PLATE_I = 220
 PLATE_RES = (150, 298)
-PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.1.h5'
-PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
+ID_TOP = 130
+ID_BOT = 185
+ID_LEFT = 110
+ID_RIGHT = 190
 
-# PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model2.h5'
-# PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model2.h5'
+
+# PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.1.h5'
+# PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
+
+PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model2.h5'
+PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model2.h5'
+PATH_PARKING_ID = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/id_model1.h5'
 
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
@@ -46,6 +53,7 @@ class PlateReader:
             self.image_sub = rospy.Subscriber("/R1/pi_camera/image_raw", Image, self.callback)
         self.num_reader = CharReader(PATH_NUM_MODEL)
         self.alpha_reader = CharReader(PATH_ALPHA_MODEL)
+        self.id_reader = CharReader(PATH_PARKING_ID)
         self.i = 0
 
     def get_moments(self, img, debug=False):
@@ -252,6 +260,17 @@ class PlateReader:
         crop = plate_im[PLATE_I:PLATE_F, int(pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
         resize = cv2.resize(crop, PLATE_RES)
 
+        return resize
+
+    def plate_id_img(self, plate_im):
+        """Crops and processes plate images for parking ID.
+        Args:
+            plate_im (Image): image of the license plate
+        Returns:
+            Image: processed image of the parking ID
+        """        
+        crop = plate_im[ID_TOP:ID_BOT, ID_LEFT:ID_RIGHT]
+        resize = cv2.resize(crop, PLATE_RES)
         return resize
 
     def transform_perspective(self, width, height, sorted_pts, image):
