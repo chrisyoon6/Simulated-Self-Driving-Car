@@ -17,10 +17,12 @@ import numpy as np
 # import keyboard
 
 class DataScraper:
-    SET_X = 0.5-0.15
-    SET_Z = 1.0-0.15
-    # SET_X = 0.5-0.1
-    # SET_Z = 1.0
+    # SET_X = 0.5-0.2
+    # SET_Z = 1.0-0.175
+    SET_X = 0.5
+    SET_Z = 1.0
+    # SET_X = 0.5-0.3
+    # SET_Z = 0.75
     ERR_X = 0.1
     ERR_Z = 0.2
     WIDTH, HEIGHT = (1280, 720)
@@ -34,8 +36,8 @@ class DataScraper:
         self.twist = (0,0,0) # lin x, ang z, lin z
 
         self.bridge = CvBridge()
-        self.dirPath_raw = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-raw-bias/"
-        self.dirPath_hsv = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-bias/"
+        self.dirPath_raw = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/inner-raw-1/"
+        self.dirPath_hsv = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/inner-hsv-1/"
         self.count = 0
         self.can_scrape = False
 
@@ -60,9 +62,9 @@ class DataScraper:
             return
         print(self.twist[0], self.twist[1])
         cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
-        hsv = DataScraper.process_img(cv_image, mode='rgb')
-        # cv2.imshow('filtered', hsv)
-        # cv2.waitKey(3)
+        hsv = DataScraper.process_img(cv_image, type='rgb')
+        cv2.imshow('filtered', hsv)
+        cv2.waitKey(1)
         x,z = DataScraper.discretize_vals(self.twist[0], self.twist[1], DataScraper.ERR_X, DataScraper.ERR_Z, DataScraper.SET_X, DataScraper.SET_Z)
         print(x, z)
         print('\n')
@@ -180,8 +182,8 @@ def temp3():
 
 def temp4():
     count =  3051
-    folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-2"
-    new_folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3"
+    # folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-2"
+    # new_folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3"
     for filename in os.listdir(folder):
         img = np.array(Image_PIL.open(os.path.join(folder, filename)))
         # print(img.shape)
@@ -202,9 +204,9 @@ def main(args):
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    # main(sys.argv)
+    main(sys.argv)
     # temp()
     # temp2()
     # temp3()
-    temp4()
+    # temp4()
 

@@ -34,7 +34,7 @@ class Helpers:
             new_filename = "_".join([hsv, str(count), str(x), str(z)])
             cv2.imwrite(os.path.join(new_folder, new_filename), img)
             count += 1
-
+        return count
     @staticmethod
     def compress_all_data(folder, new_folder, cmp_ratio):
         """Compresses all data from a folder and saves it to another folder.
@@ -55,6 +55,9 @@ def compress_frames():
     src_path = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3/"
     target_path = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3-compressed/"
     Helpers.compress_all_data(src_path, target_path, 0.5)
+
+def move_files():
+    pass
 
 def main():
     path = "/home/fizzer/ros_ws/src/id-data/"

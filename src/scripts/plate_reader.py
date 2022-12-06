@@ -31,7 +31,7 @@ ID_RIGHT = 190
 # PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
 
 PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model2.h5'
-PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model2.h5'
+PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model2.1.h5'
 PATH_PARKING_ID = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/id_model1.h5'
 
 font = cv2.FONT_HERSHEY_COMPLEX

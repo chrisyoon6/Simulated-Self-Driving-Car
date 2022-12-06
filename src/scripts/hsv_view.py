@@ -72,7 +72,9 @@ class ImageProcessor:
     @staticmethod 
     def filter_red(img, type="bgr"):
         return ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up, type)
-
+    @staticmethod
+    def filter_blue(img, type="bgr"):
+        return ImageProcessor.filter(img, ImageProcessor.blue_low, ImageProcessor.blue_up, type)
     @staticmethod
     def compare_frames(bin_img1, bin_img2):
         """Compares two binary images and calculates the difference between the images
@@ -145,7 +147,8 @@ class ImageProcessor:
         except CvBridgeError as e:
             print(e)
 
-        self.test_hugh_trans(cv_image)
+        # self.test_hugh_trans(cv_image)
+        self.blue_area(cv_image)
         ##
         # img_gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         # img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
@@ -163,7 +166,22 @@ class ImageProcessor:
         # cv2.imshow('script_view', self.red_im)
         # cv2.waitKey(3)
         ##
-    
+    def contours_area(img,nums=1):
+        contours, hierarchy = cv2.findContours(
+            image=img, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+        cs = sorted(contours, key=cv2.contourArea, reverse=True)
+        if len(cs) > nums:
+            cs = cs[:nums]
+        areas = [cv2.contourArea(c) for c in cs] 
+        return areas
+    def blue_area(self, cv_image):
+        crped = ImageProcessor.crop(cv_image, row_start=int(720/2.2))
+        blu_crped = ImageProcessor.filter_blue(crped)
+        cv2.imshow("Blue", blu_crped)
+        cv2.waitKey(1)
+        blu_area = ImageProcessor.contours_area(blu_crped)[0]
+        print(blu_area)
+
     def test_hugh_trans(self, img):
         bin = ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up)
         cv2.imshow('script_view', bin)
