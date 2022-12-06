@@ -18,7 +18,9 @@ import numpy as np
 
 class DataScraper:
     SET_X = 0.5-0.15
-    SET_Z = 1.0-0.1
+    SET_Z = 1.0-0.15
+    # SET_X = 0.5-0.1
+    # SET_Z = 1.0
     ERR_X = 0.1
     ERR_Z = 0.2
     WIDTH, HEIGHT = (1280, 720)

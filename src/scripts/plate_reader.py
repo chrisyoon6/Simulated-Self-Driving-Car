@@ -100,96 +100,74 @@ class PlateReader:
         except CvBridgeError as e:
             print(e)
 
-        # out = cv_image.copy()
-        # processed_im = ImageProcessor.filter_plate(cv_image, ImageProcessor.plate_low, ImageProcessor.plate_up)
+        p_v = self.get_plate_view(cv_image)
 
-        # c = self.get_moments(processed_im)
+        if list(p_v):
+            kernel = np.array([[-1,-1,-1], [-1,9.5,-1], [-1,-1,-1]])
+            sharper = cv2.filter2D(p_v, -1, kernel)
+            cv2.imshow("Plate view", p_v)
+            cv2.imshow("Plate view sharper", sharper)
+            cv2.waitKey(1)
+        lp, p_vs = self.prediction_data_license(cv_image)
+        if lp:
+            print(lp)
+            for p in p_vs:
+                print(p)
+            print("")
 
-        # if not list(c):
-        #     return
+    def prediction_data_license(self, img):
+        """Obtains the cnn's prediction data of a license plate.
 
-        # # cv2.imshow('contours', cv2.drawContours(cv2.resize(out, (400, 300)), c, -1, (0,0,255), 3))
-        # # cv2.waitKey(3)
+        Args:
+            img (cv::Mat): Raw image data containing a license plate to predict on
 
-        # approx = self.approximate_plate(c, epsilon=0.1)
-
-        # verticies = self.verticies(approx_c=approx)
-
-        # # print("Verticies", verticies)
-
-        # if not list(verticies):
-        #     # print("No perspective transform")
-        #     return
-        # # print(verticies)
-        # # print(cv2.contourArea(c))
-        # plate_view = self.transform_perspective(
-        #     CAR_WIDTH, CAR_HEIGHT, verticies, out)
-        # cv2.imshow("plate", plate_view)
-        # cv2.waitKey(3)
-        # char_imgs = self.get_char_imgs(plate=plate_view)
-        # print(self.characters(char_imgs), cv2.contourArea)
-
-        # p_v = self.get_plate_view(cv_image)
-        # if list(p_v):
-        #     c_img = self.get_char_imgs(p_v)
-        #     pred = self.characters(c_img)
-        #     print(pred)
-
-        # if list(p_v):
-        #     kernel = np.array([[-1,-1,-1], [-1,9.5,-1], [-1,-1,-1]])
-        #     sharper = cv2.filter2D(p_v, -1, kernel)
-        #     cv2.imshow("Plate view", p_v)
-        #     cv2.imshow("Plate view sharper", sharper)
-        #     cv2.waitKey(1)
-        lp, p_vs = self.prediction_data(cv_image)
-        print(lp)
-        for p in p_vs:
-            print(p)
-        print("")
-
-    def prediction_data(self, img):
+        Returns:
+            tuple[str, ndarray]: string of characters representing the predicted license plate, and a 2D array of length 4, each element being an array containing the predicted probablities 
+            of the corresponding character. Returns an empty string and an empty list if the image is invalid.
+        """        
         p_v = self.get_plate_view(img)
         if list(p_v):
             c_img = self.get_char_imgs(p_v)
-            pred,pred_vecs = self.characters(c_img, get_pred_vec=True)
+            pred, pred_vecs = self.characters(c_img, get_pred_vec=True)
             return pred, pred_vecs
+        else:
+            return "", []
 
-    def get_license_plate(self,img):
-        processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
-        # cv2.imshow("plate filtered", processed_im)
-        # cv2.waitKey(1)
-        c = self.get_moments(processed_im)
-        if not list(c):
-            # no contour
-            return ""
-        area = cv2.contourArea(c)
-        # print("---------Area: ", area)
-        # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
-        # cv2.waitKey(3)
-        if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
-            return ""
-        approx = self.approximate_plate(c, epsilon=0.1)
-        verticies = self.verticies(approx_c=approx)
+    def prediction_data_id(self, img):
+        """Obtains the cnn's prediction data of a plate ID.
 
-        if not list(verticies):
-            # no verticies (i.e. no perspec. transform)
-            return ""
-        plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
-        
-        # cv2.imshow("plate view", cv2.cvtColor(plate_view, cv2.COLOR_BGR2GRAY))
-        # cv2.waitKey(1)
-        
-        char_imgs = self.get_char_imgs(plate=plate_view)
-        return self.characters(char_imgs)
+        Args:
+            img (cv::Mat): Raw image data containing a license plate to predict on
+
+        Returns:
+            tuple[str, array]: Number of the license plate ID and a 1D array containing the predicted probablities 
+            of the corresponding character. Returns an empty string and an empty list if the image is invalid.
+        """        
+        p_v = self.get_plate_view(img)
+        if list(p_v):
+            id_img = self.plate_id_img(p_v)
+            pred_vec = self.id_reader.predict_char(id_img, id=True)
+            chr_out = self.id_reader.interpret(pred_vec)
+            return chr_out, pred_vec
+        else:
+            return "", []
 
     def get_plate_view(self, img):
+        """Obtains the projected rectangular view of a license plate contained within the input image.
+
+        Args:
+            img (cv::Mat): Raw image data containing the license plate.
+
+        Returns:
+            cv::Mat: Projected view of the license plate, or empty list if invalid image.
+        """        
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
         # cv2.imshow("plate filtered", processed_im)
         # cv2.waitKey(1)
         c = self.get_moments(processed_im)
         if not list(c):
             # no contour
-            return ""
+            return []
         area = cv2.contourArea(c)
         # print("---------Area: ", area)
         # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
@@ -202,7 +180,7 @@ class PlateReader:
         if not list(verticies):
             # no verticies (i.e. no perspec. transform)
             return []
-        print("VERTICIES:", verticies)
+        # print("VERTICIES:", verticies)
         plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
         return plate_view
 
@@ -212,12 +190,12 @@ class PlateReader:
         Args:
             char_imgs (array[Image]): Array (length 4) of character images from the license plate.
                 First two images should be of letters, second two should be of numbers.
-
+            get_pred_vec (bool, optional): True if prediction data should also be returned. Defaults to False.
         Returns:
-            str: a string representing the license plate
+            str or tuple[str,ndarray]: a string representing the license plate. Also returns the prediction probabilities for each character if set to true. 
         """
+        
         pred_vecs = []
-        print("\n")
         license_plate = ''
         for index,img in enumerate(char_imgs):
             if index < 2:
@@ -226,10 +204,10 @@ class PlateReader:
             else:
                 prediction_vec = self.num_reader.predict_char(img=img)
                 license_plate += CharReader.interpret(predict_vec=prediction_vec)
-            pred_vecs.append(prediction_vec)
-        print("\n")
+            pred_vecs.append(np.round(np.array(prediction_vec), 3))
+
         if get_pred_vec:
-            return license_plate, pred_vecs
+            return license_plate, np.array(pred_vecs)
         else:
             return license_plate
 
@@ -238,6 +216,9 @@ class PlateReader:
 
         Args:
             plate (Image): rectangular image of the license plate
+            id (bool, optional): True if the character is from the plate ID, not the license. Defaulted to False.
+        Returns:
+            list[cv::Mat]: list of images,
         """
         imgs = []
         for i in range(4):
@@ -249,14 +230,19 @@ class PlateReader:
 
         Args:
             approx_c (***): approximated contour of which the verticies are found
+        Returns:
+            ndarray: verticies of the contour, from top to bottom, left to right. Empty list returned if invalid verticies.
         """
         n = approx_c.ravel()
         pts = np.float32(self.get_coords(n)).reshape(-1, 2)
         sorted_pts = PlateReader.contour_coords_sorted(pts)
-        
-        if 0 in sorted_pts[:,0] or COLS-1 in sorted_pts[:,0]:
+        if not list(sorted_pts):
             return []
-        if 0 in sorted_pts[:,1] or ROWS-1 in sorted_pts[:,1]:
+
+        sorted_pts_np = np.array(sorted_pts)
+        if 0 in sorted_pts_np[:,0] or COLS-1 in sorted_pts_np[:,0]:
+            return []
+        if 0 in sorted_pts_np[:,1] or ROWS-1 in sorted_pts_np[:,1]:
             return []
         return sorted_pts
 
@@ -277,7 +263,8 @@ class PlateReader:
         Args: pos - the position in the license plate
               plate_im - image of license plate
 
-        Returns: processed image of plate"""
+        Returns: processed image of plate
+        """
 
         crop = plate_im[PLATE_I:PLATE_F, int(pos*CAR_WIDTH/4):int((pos + 1)*CAR_WIDTH/4)]
         resize = cv2.resize(crop, PLATE_RES)
@@ -296,11 +283,14 @@ class PlateReader:
         return resize
 
     def transform_perspective(self, width, height, sorted_pts, image):
-        """Args: The coords of the polygon we are to transform into a rectangle.
-                 Desired width and height of the transformed image.
-                 The image from which we pull the polygon.
-
-                 Returns: The polygon from the original image transformed into a square."""
+        """
+        Args: 
+            The coords of the polygon we are to transform into a rectangle.
+            Desired width and height of the transformed image.
+            The image from which we pull the polygon.
+        Returns: 
+            The polygon from the original image transformed into a square
+        """
         pts = np.float32([[0, 0], [width, 0],
                           [0, height], [width, height]])
         # print("transform perspective")
@@ -326,9 +316,12 @@ class PlateReader:
     def contour_coords_sorted(list_of_points):
         """Sorts the verticies of a contour so it can be perspective transformed
         
-        Args: List of contour verticies. Should have exactly 4 verticies with (x,y)
+        Args: 
+            list[float]: List of contour verticies. Should have exactly 4 verticies with (x,y)
         
-        Returns: Verticies in list sorted by top to bottom, left to right"""
+        Returns: 
+            ndarray: Verticies in list sorted by top to bottom, left to right, with each verticies being an array with [col, row]
+        """
 
         avg_y = 0
         avg_x = 0

@@ -69,6 +69,10 @@ class ImageProcessor:
         blur = cv2.GaussianBlur(mask, (3, 3), 0)
         return blur
     
+    @staticmethod 
+    def filter_red(img, type="bgr"):
+        return ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up, type)
+
     @staticmethod
     def compare_frames(bin_img1, bin_img2):
         """Compares two binary images and calculates the difference between the images
@@ -141,23 +145,39 @@ class ImageProcessor:
         except CvBridgeError as e:
             print(e)
 
-        img_gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
-        # print(cv_image.shape)
-        self.process_image(cv_image) 
-        # print(self.temp_im)
-        mse = -1
-        if self.temp_im is not None:
-            mse = ImageProcessor.compare_frames(self.temp_im, img_gray)
-        # contours = PlatePull.get_contours_area(self.red_im, 3)
-        # print("Contours:", contours)
-        print("mse:", mse)
-        self.temp_im = img_gray
-        # cv2.imshow('script_view', img_gray)
-        cv2.imshow('script_view', self.red_im)
+        self.test_hugh_trans(cv_image)
+        ##
+        # img_gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+        # img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
+        # # print(cv_image.shape)
+        # self.process_image(cv_image) 
+        # # print(self.temp_im)
+        # mse = -1
+        # if self.temp_im is not None:
+        #     mse = ImageProcessor.compare_frames(self.temp_im, img_gray)
+        # # contours = PlatePull.get_contours_area(self.red_im, 3)
+        # # print("Contours:", contours)
+        # print("mse:", mse)
+        # self.temp_im = img_gray
+        # # cv2.imshow('script_view', img_gray)
+        # cv2.imshow('script_view', self.red_im)
+        # cv2.waitKey(3)
+        ##
+    
+    def test_hugh_trans(self, img):
+        bin = ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up)
+        cv2.imshow('script_view', bin)
+        cv2.waitKey(1)
+        edges = cv2.Canny(bin,50,150,apertureSize = 3)
+        minLineLength=100
+        lines = cv2.HoughLinesP(image=edges,rho=1,theta=np.pi/180, threshold=100,lines=np.array([]), minLineLength=minLineLength,maxLineGap=80)
+        if list(lines):
+            x1,y1,x2,y2 = lines[0][0].tolist()
+            if x1 != x2:
+                print(np.rad2deg(np.arctan((y2-y1)/(x2-x1))))
+                print(y1,y2)
+                print("")
         
-        cv2.waitKey(3)
-
 
 def main(args):
   
