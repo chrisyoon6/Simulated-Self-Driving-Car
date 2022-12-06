@@ -46,7 +46,7 @@ class Driver:
     ROWS = 720
     COLS = 1280
     """crosswalk"""
-    CROSSWALK_FRONT_AREA_THRES = 5000
+    CROSSWALK_FRONT_AREA_THRES = 5000-1000
     CROSSWALK_BACK_AREA_THRES = 400
     CROSSWALK_MSE_STOPPED_THRES = 9
     CROSSWALK_MSE_MOVING_THRES = 40
@@ -123,6 +123,10 @@ class Driver:
         self.in_transition = False
         self.turning_transition = False
         self.inner_loop = False
+        self.publish_state = False
+        self.inner_counter = 0
+
+        self.start_inner_loop = False
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -143,6 +147,14 @@ class Driver:
             return
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        if self.publish_state:
+            
+            return
+        if self.start_inner_loop:
+            self.inner_loop_seq()
+            if not self.start_inner_loop:
+                self.inner_loop = True
+            return
         if self.inner_loop:
             hsv = DataScraper.process_img(cv_image, type="bgr")
             predicted = self.inner_dv_mod.predict(hsv)
@@ -150,6 +162,9 @@ class Driver:
             self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
             self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
             self.twist_pub.publish(self.move)
+            if (time.time() - self.start > 230):
+                self.inner_loop = False
+                self.publish_state = True
             return
         elif self.turning_transition:
             print("turning transition")
@@ -163,7 +178,8 @@ class Driver:
             if largest_blu_area and largest_blu_area > Driver.BLUE_AREA_THRES_TURN:
                 z = 0
                 self.turning_transition = False
-                self.inner_loop = True
+                # self.inner_loop = True
+                self.start_inner_loop = True
             self.move.linear.x = x
             self.move.angular.z = z
             self.twist_pub.publish(self.move)
@@ -338,62 +354,6 @@ class Driver:
             self.lp_dict[pred_lp][1] += pred_lp_vecs
             # self.lp_dict[pred_lp] = (freq, p_v)
 
-    # def get_pred_sum(self, pred_lp_vecs, id=True):
-    #     # summed_pred_vec = []
-    #     if id:
-    #         sum = np.sum(pred_lp_vecs, axis=0)
-    #         return sum
-    #     else:
-    #         sum = []
-    #         pred_lp_vecs = np.array(pred_lp_vecs)
-    #         print(pred_lp_vecs.shape)
-    #         pred_lp_vecs = pred_lp_vecs[0]
-    #         for i in range(0, 4):
-    #             print(pred_lp_vecs[:,0])
-    #             sum.append(np.sum(pred_lp_vecs[:,i], axis=0))
-    #         return sum
-
-    # def post_process_predictions(self, min_prob):
-    #     for id in self.id_dict:
-    #         # weighted sum
-    #         summed = self.get_pred_sum(self.id_stats_dict[id][1])
-    #         self.id_stats_dict[id][1] = summed / self.id_stats_dict[id][0]
-
-    #     for k in self.lp_dict:
-    #         summed = self.get_pred_sum(self.lp_dict[k][1], id=False)
-    #         flg = False
-    #         weighted_summed = self.lp_dict[k][0]*summed
-    #         weighted_thres = min_prob*self.lp_dict[k][0]
-    #         for p in weighted_summed:
-    #             if np.max(p) < weighted_thres:
-    #                 flg = True
-    #                 break
-    #         if flg:
-    #             del self.lp_dict[k]
-    #         else:
-    #             self.lp_dict[k][1] = weighted_summed
-
-
-    # def add_predictions(self, pred_id, pred_id_vec, pred_lp, pred_lp_vecs):
-    #     # id -> set[license plates]
-    #     if not pred_id in self.id_dict:
-    #         self.id_dict[pred_id] = set()
-    #     self.id_dict[pred_id].add(pred_lp)
-
-    #     # id -> (freq, prediction vector)
-    #     if not pred_id in self.id_stats_dict:
-    #         self.id_stats_dict[pred_id] = [1,[pred_id_vec]]
-    #     else:
-    #         self.id_stats_dict[pred_id][0] += 1
-    #         self.id_stats_dict[pred_id][1].append(pred_id_vec)
-
-    #     # license plates -> (freq, prediction vector)
-    #     if not pred_lp in self.lp_dict:
-    #         self.lp_dict[pred_lp] = [1, [pred_lp_vecs]]
-    #     else:
-    #         self.lp_dict[pred_lp][0] += 1
-    #         self.lp_dict[pred_lp][1].append(pred_lp_vecs)
-
     def is_straightened(self, img):
         """ Determines whether or not the robot is straightened to the red line
 
@@ -478,7 +438,7 @@ class Driver:
         # cv2.imshow('script_view', red_filt)
         # cv2.waitKey(3)
         area = PlatePull.get_contours_area(red_filt,2)
-        # print("---Red Area", area)
+        print("---Red Area", area)
         if not list(area):
             return False
 
@@ -549,8 +509,6 @@ class Driver:
         elif (self.start_counter == 10): 
             print(self.start_counter)
             self.license_pub.publish(String('TeamYoonifer,multi21,0,AA00'))
-        elif (self.start_counter == 4000):  #arbitrary number
-            self.license_pub.publish(String('TeamYoonifer,multi21,-1,AA00'))
         else:
 
             # if (self.start_counter < 30):
@@ -574,7 +532,23 @@ class Driver:
             # cv2.waitKey(3)
 
         self.start_counter += 1
+    def inner_loop_seq(self):
+        if (self.inner_counter < 10):
+            pass
+        if (self.inner_counter < 20):
+                self.move.linear.x = 0.7
+                self.move.angular.z = 1.4
+        elif (self.inner_counter < 26):
+                self.move.linear.x = 0
+                self.move.angular.z = 2.8
+        else:
+            self.move.linear.x = 0
+            self.move.angular.z = 0
+            self.start_inner_loop = False
+        self.twist_pub.publish(self.move)
+        print(self.inner_counter)
 
+        self.inner_counter += 1
 def main(args):    
     rospy.init_node('Driver', anonymous=True)
     dv = Driver()

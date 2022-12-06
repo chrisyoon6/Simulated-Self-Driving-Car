@@ -19,10 +19,10 @@ import numpy as np
 class DataScraper:
     # SET_X = 0.5-0.2
     # SET_Z = 1.0-0.175
-    SET_X = 0.5
-    SET_Z = 1.0
-    # SET_X = 0.5-0.3
-    # SET_Z = 0.75
+    # SET_X = 0.5
+    # SET_Z = 1.0
+    SET_X = 0.5-0.25
+    SET_Z = 0.8
     ERR_X = 0.1
     ERR_Z = 0.2
     WIDTH, HEIGHT = (1280, 720)
@@ -43,7 +43,7 @@ class DataScraper:
 
     def callback_img(self, data):
         """Callback for the subscriber node of the /image_raw topic.
-        Saves both its raw and filtered images, labeling them with the latest Twist values.
+        Saves both its raw and filte;images, labeling them with the latest Twist values.
         Scraping starts when 't' has been clicked on teleop 
         (i.e. giving linear z= 0.5) and stops when 'b' has been clicked on teleop (linear z =-0.5).
         Also ignores the input if the robot is not moving. 
