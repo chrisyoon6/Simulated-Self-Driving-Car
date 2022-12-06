@@ -18,10 +18,16 @@ from std_msgs.msg import String
 
 plate_dir = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/plate_temp2"
 
+"""
+NOTES:
+- inner loop: more straight data at corners 
+- intersection handling (i.e. going into inner loop)
+"""
+
 class Driver:
     DEF_VALS = (0.5, 0.5)
     MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model-0.h5"
-    INNER_MOD_PATH = "/home/fizzer/ros_ws/src/models/inner-drive-model-0.0.h5"
+    INNER_MOD_PATH = "/home/fizzer/ros_ws/src/models/inner-drive-model-0.1.h5"
     """
     (0.5,0) = 0
     (0, -1) = 1
@@ -60,7 +66,7 @@ class Driver:
     RED_INTERSEC_PIX_THRES = 5
 
     """Outside loop control"""
-    NUM_CROSSWALK_STOP = 2
+    NUM_CROSSWALK_STOP = 1
     OUTSIDE_LOOP_SECS = 10 
 
     """Turn to inside intersec"""
@@ -139,7 +145,7 @@ class Driver:
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.inner_loop:
             hsv = DataScraper.process_img(cv_image, type="bgr")
-            predicted = self.dv_mod.predict(hsv)
+            predicted = self.inner_dv_mod.predict(hsv)
             pred_ind = np.argmax(predicted)
             self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
             self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
