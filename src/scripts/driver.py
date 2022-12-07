@@ -66,8 +66,8 @@ class Driver:
     RED_INTERSEC_PIX_THRES = 5
 
     """Outside loop control"""
-    NUM_CROSSWALK_STOP = 4
-    OUTSIDE_LOOP_SECS = 120 
+    NUM_CROSSWALK_STOP = 1
+    OUTSIDE_LOOP_SECS = 0 
 
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
@@ -177,8 +177,14 @@ class Driver:
             hsv = DataScraper.process_img(cv_image, type="bgr")
             predicted = self.inner_dv_mod.predict(hsv)
             pred_ind = np.argmax(predicted)
-            self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
+            # self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
+            x = Driver.ONE_HOT[pred_ind][0]
             self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
+            if x > 0:
+                x = 0.5
+            elif x < 0:
+                x = -0.5
+            self.move.linear.x = x
             self.twist_pub.publish(self.move)
             if (time.time() - self.start > 230):
                 self.inner_loop = False
@@ -488,8 +494,10 @@ class Driver:
                     best_lp = lp
                 combos[id] = best_lp
 
-        for i in range(6):
-            output_publish = String('TeamYoonifer,multi21,' + i + ',' + combos[i])
+        for id in self.id_dict:
+            if id == '7' or id == '8':
+                continue
+            output_publish = String('TeamYoonifer,multi21,' + id + ',' + combos[id])
             self.license_pub.publish(output_publish)
 
         return combos
@@ -621,9 +629,15 @@ class Driver:
         Executes the sequenece to turn into the inner loop from the intersection by publishing to gazebo.
         Only to be ran when the inner loop sequence state is TRUE. Sets the state to be FALSE when completed.
         """        
-        if (self.inner_counter < 10):
-                self.move.linear.x = 0.45
-                self.move.angular.z = 1.6
+        if (self.inner_counter < 6):
+            self.move.linear.x = 1
+            self.move.angular.z = 0
+        elif (self.inner_counter < 18):
+            self.move.linear.x = 0.4
+            self.move.angular.z = 1.6
+        elif (self.inner_counter < 24):
+            self.move.linear.x = 0
+            self.move.angular.z = 1.2
         else:
             self.move.linear.x = 0
             self.move.angular.z = 0
