@@ -125,6 +125,7 @@ class Driver:
         self.inner_loop = False
         self.publish_state = False
         self.inner_counter = 0
+        self.turning_seq_counter1 = 0
 
         self.start_inner_loop = False
 
@@ -537,15 +538,28 @@ class Driver:
             # cv2.waitKey(3)
 
         self.start_counter += 1
+    def turning_seq1(self):
+        if (self.turning_seq_counter1 < 20):
+            self.move.linear.x = 0
+            self.move.angular.z = 1.54
+        else:
+            self.move.angular.z = 0
+            self.move.linear.x = 0
+            
+            self.turning_transition = False
+            
+            ###################### CHECK FOR CAR
+            # check_for_car = True
+            
+            self.start_inner_loop = True
+
+        self.twist_pub.publish(self.move)
+        self.turning_seq_counter1 += 1
+    
     def inner_loop_seq(self):
         if (self.inner_counter < 10):
-            pass
-        if (self.inner_counter < 20):
-                self.move.linear.x = 0.7
-                self.move.angular.z = 1.4
-        elif (self.inner_counter < 26):
-                self.move.linear.x = 0
-                self.move.angular.z = 2.8
+                self.move.linear.x = 0.45
+                self.move.angular.z = 1.6
         else:
             self.move.linear.x = 0
             self.move.angular.z = 0
