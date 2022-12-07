@@ -27,7 +27,7 @@ NOTES:
 class Driver:
     DEF_VALS = (0.5, 0.5)
     MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model-0.h5"
-    INNER_MOD_PATH = "/home/fizzer/ros_ws/src/models/inner-drive-model-5.h5"
+    INNER_MOD_PATH = "/home/fizzer/ros_ws/src/models/inner-drive_model-5.h5"
     """
     (0.5,0) = 0
     (0, -1) = 1
@@ -61,7 +61,7 @@ class Driver:
     SLOW_DOWN_X = 0.07
     SLOW_DOWN_Z = 0.55
 
-    SLOW_DOWN_X_INNER = 0.2
+    SLOW_DOWN_X_INNER = 0.35
     SLOW_DOWN_Z_INNER = 0.8
 
     """transition"""
@@ -70,8 +70,8 @@ class Driver:
     RED_INTERSEC_PIX_THRES = 5
 
     """Outside loop control"""
-    NUM_CROSSWALK_STOP = 1
-    OUTSIDE_LOOP_SECS = 0 
+    NUM_CROSSWALK_STOP = 3
+    OUTSIDE_LOOP_SECS = 120 
 
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
@@ -80,7 +80,7 @@ class Driver:
     TRUCK_MSE_OUT_MAX = 15 
     TRUCK_STOP_SECS = 0.5
 
-    INNER_X = 0.4
+    INNER_X = 0.5
 
     """
     TODOS:
@@ -149,6 +149,8 @@ class Driver:
         self.truck_frames_count = 0
         self.prev_mse_truck = None
 
+        self.end_state = False
+
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -161,14 +163,19 @@ class Driver:
         
         Args:
             data (sensor_msgs::Image): The image recieved from the robot's camera
-        """                
+        """
+        if self.end_state:
+            return
+
         if self.start_seq_state:
             self.start_seq()
             return
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.publish_state_inner:
-            self.get_plate_results(inner=True)
+            print(self.get_plate_results(inner=True))
+            self.end_state = True
+            self.publish_state_inner = False
             return
 
         if self.start_inner_loop:
@@ -195,10 +202,10 @@ class Driver:
             #     x = -0.4
             # self.move.linear.x = x
             self.predict_zone(cv_image, inner=True)
-            self.predict_if_in_zone(cv_image)
+            self.predict_if_in_zone(cv_image, inner=True)
 
             self.twist_pub.publish(self.move)
-            if '7' in self.id_dict and '8' in self.id_dict and 5 < self.id_stats_dict['7'][0] and 5 < self.id_stats_dict['8'][0]:
+            if '7' in self.id_dict and '8' in self.id_dict and 3 < self.id_stats_dict['7'][0] and 3 < self.id_stats_dict['8'][0]:
                 # at least 5 good readings for both
                 self.inner_loop = False
                 self.publish_state_inner = True
@@ -366,13 +373,13 @@ class Driver:
             # predicted license plate but not considered.
             self.acquire_lp = False
 
-    def predict_if_in_zone(self, cv_image):
+    def predict_if_in_zone(self, cv_image, inner=False):
         pred_id, pred_id_vec = self.pr.prediction_data_id(cv_image)
         if pred_id:
             pred_lp, pred_lp_vecs = self.pr.prediction_data_license(cv_image)
             if pred_lp and self.acquire_lp:
                 # only update predictions if there has been a prediction and when slowed down 
-                self.update_predictions(pred_id, pred_id_vec, pred_lp, pred_lp_vecs)
+                self.update_predictions(pred_id, pred_id_vec, pred_lp, pred_lp_vecs, inner)
 
     def can_enter_intersec(self, img):
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -421,7 +428,7 @@ class Driver:
             self.lp_dict[k][1] = np.array(val)
             flg = False
 
-    def update_predictions(self, pred_id, pred_id_vec, pred_lp, pred_lp_vecs):
+    def update_predictions(self, pred_id, pred_id_vec, pred_lp, pred_lp_vecs, inner=False):
         """Updates prediction dictionaries for the plate ID and names.
 
         Args:
@@ -431,6 +438,9 @@ class Driver:
             pred_lp_vecs (ndarray): s 2D numpy array, where each element is the predicited probabilties for the corresponding character
         """        
         # id -> set[license plates]
+        if not inner and (pred_id == "7" or pred_id =="8"):
+            return
+
         if not pred_id in self.id_dict:
             self.id_dict[pred_id] = set()
         self.id_dict[pred_id].add(pred_lp)
@@ -529,10 +539,12 @@ class Driver:
                 combos[id] = best_lp
 
         for id in self.id_dict:
-            if inner and (id != '7' and id != '8'):
+            if inner and (id != "7" and id != "8"):
                 continue
-            if not inner and (id == '7' or id == '8'):
+            elif not inner and (id == "7" or id == "8"):
                 continue
+            
+            print("--------------PUBLISHING--------------", id)
             output_publish = String('TeamYoonifer,multi21,' + id + ',' + combos[id])
             self.license_pub.publish(output_publish)
 
