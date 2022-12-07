@@ -141,6 +141,7 @@ class Driver:
         self.was_truck_out = False
         self.truck_test_complete = False
         self.truck_frames_count = 0
+        self.prev_mse_truck = None
 
 
     def callback_img(self, data):
@@ -166,8 +167,9 @@ class Driver:
         if self.start_inner_loop:
             # Facing the inner loop, executes the inner loop sequence by driving in and merging, only when the truck has been past
             # STATE CHANGE: start inner loop --> inner loop
-            if not self.truck_test_complete and self.can_enter_intersec(cv_image):
-                self.truck_test_complete = True
+            if not self.truck_test_complete:
+                if self.can_enter_intersec(cv_image):
+                    self.truck_test_complete = True
                 return
             self.inner_loop_seq()
             if not self.start_inner_loop:
@@ -181,9 +183,9 @@ class Driver:
             x = Driver.ONE_HOT[pred_ind][0]
             self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
             if x > 0:
-                x = 0.5
+                x = 0.4
             elif x < 0:
-                x = -0.5
+                x = -0.4
             self.move.linear.x = x
             self.twist_pub.publish(self.move)
             if (time.time() - self.start > 230):
@@ -343,14 +345,14 @@ class Driver:
     def can_enter_intersec(self, img):
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), 320, 1280-2*320)
-        if self.prev_mse_frame is None:
-            self.prev_mse_frame = img_gray
+        if self.prev_mse_truck is None:
+            self.prev_mse_truck = img_gray
             return False
         
-        mse = ImageProcessor.compare_frames(self.prev_mse_frame, img_gray)
+        mse = ImageProcessor.compare_frames(self.prev_mse_truck, img_gray)
         print("mse:", mse)
         print("truck in, truck out:" , self.was_truck_in, self.was_truck_out)
-        self.prev_mse_frame = img_gray
+        self.prev_mse_truck = img_gray
         
         if self.truck_frames_count <= int(Driver.TRUCK_STOP_SECS*Driver.FPS):
             self.truck_frames_count += 1
@@ -359,10 +361,10 @@ class Driver:
         if mse < Driver.TRUCK_MSE_OUT_MAX:
             if not self.was_truck_out:
                 self.was_truck_out = True
-                return False
             if self.was_truck_in and self.was_truck_out:
-                self.prev_mse_frame = None
+                self.prev_mse_truck = None
                 self.truck_frames_count = 0
+                print("truck in, truck out:" , self.was_truck_in, self.was_truck_out)
                 return True
 
         if mse > Driver.TRUCK_MSE_IN_MIN:
