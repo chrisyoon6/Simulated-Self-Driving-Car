@@ -91,7 +91,7 @@ class Driver:
         self.dv_mod = Model(Driver.MODEL_PATH)
         self.inner_dv_mod = Model(Driver.INNER_MOD_PATH)
         self.pr = PlateReader(script_run=False)
-
+        """crosswalk"""
         self.is_stopped_crosswalk = False
         self.first_ped_moved = False
         self.first_ped_stopped = False
@@ -100,24 +100,27 @@ class Driver:
         self.is_crossing_crosswalk = False
         self.first_stopped_frames_count = 0
 
+        """license plate model acquisition control"""
         self.at_plate = False
         self.plate_frames_count = 0
         self.plate_drive_back = False
         self.drive_back_frames_count = 0
         self.num_fast_frames = 0
         
+        """license plate predictions"""
         self.lp_dict = {}
         self.id_dict = {}
         self.id_stats_dict = {}
 
+        """Loop control"""
         self.num_crosswalks = 0
+        self.first_crosswalk_stop = True
         self.start = time.time()
         self.curr_t = self.start
         self.outside_ended = False
         self.acquire_lp = False
-        self.first_crosswalk_stop = True
 
-        self.start_seq_state = True
+        self.start_seq_state = True 
         self.start_counter = 0
         self.update_preds_state = False
         self.in_transition = False
@@ -139,9 +142,7 @@ class Driver:
         
         Args:
             data (sensor_msgs::Image): The image recieved from the robot's camera
-        """        
-        # cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
-        
+        """                
         if self.start_seq_state:
             self.start_seq()
             return
@@ -151,6 +152,8 @@ class Driver:
             
             return
         if self.start_inner_loop:
+            # Facing the inner loop, executes the inner loop sequence by driving in and merging, only when the truck has been past
+            # STATE CHANGE: start inner loop --> inner loop
             self.inner_loop_seq()
             if not self.start_inner_loop:
                 self.inner_loop = True
@@ -167,7 +170,8 @@ class Driver:
                 self.publish_state = True
             return
         elif self.turning_transition:
-            print("turning transition")
+            # At the intersection, turns left to face the inner loop.
+            # STATE CHANGE: turning transition --> start inner loop sequenc
             # turn until blue area thres ################################## julian hardcord turn
             z = 1
             x = 0
@@ -178,14 +182,15 @@ class Driver:
             if largest_blu_area and largest_blu_area > Driver.BLUE_AREA_THRES_TURN:
                 z = 0
                 self.turning_transition = False
-                # self.inner_loop = True
                 self.start_inner_loop = True
             self.move.linear.x = x
             self.move.angular.z = z
             self.twist_pub.publish(self.move)
             return
         elif self.in_transition:
-            # straighten
+            # Only to be ran when outside predictions updated (stopped at crosswalk and ended outside). Gets the license plate ID and combo results to be published.
+            # Straightens the robot to the red line, then backs up beside a crosswalk.
+            # STATE CHANGE: in transition --> turning transition (turning to face inner loop)
             z_st, x_st = self.is_straightened(cv_image)
             z = 0
             x = 0
@@ -201,6 +206,8 @@ class Driver:
             self.twist_pub.publish(self.move)
             return
         elif self.update_preds_state and self.outside_ended:
+            # updates predicted values and gets the results only after the outside loop has ended.
+            # STATE CHANGE: update predictions --> transition to inside
             print("TIME", self.curr_t - self.start)
             min_prob = 0.5
             self.post_process_preds()      
@@ -215,6 +222,8 @@ class Driver:
             return
         self.curr_t = time.time()
         if (self.curr_t - self.start) > Driver.OUTSIDE_LOOP_SECS and self.num_crosswalks >= Driver.NUM_CROSSWALK_STOP and self.is_stopped_crosswalk:
+            # Stops the robot and considered outside loop run has ended when: past the set time, visited a number of crosswalks, and currently stopped at a crosswalk. 
+            # STATE CHANGE: outside loop --> update predictions
             self.outside_ended = True
             self.update_preds_state = True
             self.move.linear.x = 0
@@ -222,7 +231,9 @@ class Driver:
             self.twist_pub.publish(self.move)
             return 
         if self.is_stopped_crosswalk:
+            # robot stopped at the crosswalk. only not stopped when it can cross
             if self.first_crosswalk_stop:
+                # first time it stopped at this crosswalk, meant for updating the number of crosswalks it has visited.
                 self.num_crosswalks += 1
                 self.first_crosswalk_stop = False
             print("stopped crosswalk")
@@ -238,8 +249,8 @@ class Driver:
             return
 
         hsv = DataScraper.process_img(cv_image, type="bgr")
-
         predicted = self.dv_mod.predict(hsv)
+
         pred_ind = np.argmax(predicted)
         self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
         self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
@@ -250,8 +261,7 @@ class Driver:
         print("Blue area:", blu_area)
 
         if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER or self.num_fast_frames < Driver.SLOW_DOWN_AREA_FRAMES:
-            # x = round(self.move.linear.x/5, 6) 
-            # z = round(self.move.angular.z/1.5, 6)
+            # Assumes close to a license plate, slows down and allows the prediction to be considered
             x = round(self.move.linear.x, 6) 
             z = round(self.move.angular.z, 6)
             if x > 0:
@@ -266,33 +276,28 @@ class Driver:
             self.move.linear.x = x
             self.move.angular.z = z
             if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER:
+                # only go faster again after a continous number of frames with blue area outside a range.
                 self.num_fast_frames = 0    
             else:
                 self.num_fast_frames += 1
             self.acquire_lp = True
         else:
+            # predicted license plate but not considered.
             self.acquire_lp = False
 
         if self.is_crossing_crosswalk:
-            # print("crossing")
+            # crossing the crosswalk. does not look for the red line at this period and drives faster.
             self.crossing_crosswalk_count += 1
             x = round(self.move.linear.x, 4)
             z = round(self.move.angular.z, 4)
             if x > 0:
                 x = Driver.CROSSWALK_X
             self.move.linear.x = x
-            # if z != 0:
-            #     self.move.angular.z = round(DataScraper.SET_Z*1.5,2)
             self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES  
-            # red_area = PlatePull.get_contours_area(ImageProcessor.filter(cv_image, ImageProcessor.red_low, ImageProcessor.red_up))
-            # print(red_area)
-            # if not red_area:
-            #     self.is_crossing_crosswalk = False
-            # else:
-            #     self.is_crossing_crosswalk = red_area[0] > Driver.CROSSWALK_BACK_AREA_THRES
+            # print("crossing")
 
-        # check if red line close only when not crossing
         if not self.is_crossing_crosswalk and self.is_red_line_close(cv_image):
+            # check if red line close only when not crossing
             self.crossing_crosswalk_count = 0 
             print("checking for red line")
             self.move.linear.x = 0.0
@@ -304,6 +309,7 @@ class Driver:
         if pred_id:
             pred_lp, pred_lp_vecs = self.pr.prediction_data_license(cv_image)
             if pred_lp and self.acquire_lp:
+                # only update predictions if there has been a prediction and when slowed down 
                 self.update_predictions(pred_id, pred_id_vec, pred_lp, pred_lp_vecs)
 
         try:
@@ -314,6 +320,10 @@ class Driver:
             print(e)
 
     def post_process_preds(self, min_prob=-1):
+        """Post processes the predictions. Specifically, averages the prediction vector for all obtained predictions (previously, was a sum). 
+        Args:
+            min_prob (int, optional): Min probabilty that is accepted as a valid prediction. Only accepted if all maximum probabilities for each character is above this value. Defaults to -1.
+        """        
         for id in self.id_dict:
             self.id_stats_dict[id][1] = np.around(1.0*self.id_stats_dict[id][1] / self.id_stats_dict[id][0], 3)
         for k in self.lp_dict:
@@ -323,17 +333,16 @@ class Driver:
             # print("K,VAL rounded", k, val)
             self.lp_dict[k][1] = np.array(val)
             flg = False
-            # self.lp_dict[k] = (self.lp_dict[k][0], val)
-            # for p in self.lp_dict[k][1]:
-            #     if np.max(p) < min_prob:
-            #         flg = True
-            #         break
-            # if flg and self.id_dict[k]:
-            #     print("DELETED:")
-            #     print(k, self.lp_dict[k])
-            #     del self.lp_dict[k]
 
     def update_predictions(self, pred_id, pred_id_vec, pred_lp, pred_lp_vecs):
+        """Updates prediction dictionaries for the plate ID and names.
+
+        Args:
+            pred_id (str): the predicted license plate ID
+            pred_id_vec (array): a 1D numpy array of the predicted probabilities for the ID number.
+            pred_lp (str): the predicted license plate combos
+            pred_lp_vecs (ndarray): s 2D numpy array, where each element is the predicited probabilties for the corresponding character
+        """        
         # id -> set[license plates]
         if not pred_id in self.id_dict:
             self.id_dict[pred_id] = set()
@@ -396,6 +405,9 @@ class Driver:
         return (-2,-2)
 
     def print_stats(self):
+        """
+        Prints the statistics for the obtained ID, license plates.
+        """        
         print("IDS:")
         for id in self.id_dict:
             print("----", id, "-----")
@@ -413,6 +425,11 @@ class Driver:
             print("MAXS: ", maxs)
 
     def get_plate_results(self):
+        """Obtains the best predictions for each license plate ID.
+
+        Returns:
+            dict[str, str]: a dictionary where the key is the plate ID, and the value is the best license plate name for that ID.
+        """        
         combos = {}
         for id in self.id_dict:
             best_lp = None
@@ -509,22 +526,19 @@ class Driver:
         return False
     
     def start_seq(self):
+        """
+        Start sequence for the robot, to be ran only when start sequence state is TRUE. 
+        Executes the start sequence and publishes to gazebo. Sets the start sequence to FALSE when completed.
+        """        
         if (self.start_counter < 10):
             pass
         elif (self.start_counter == 10): 
             print(self.start_counter)
             self.license_pub.publish(String('TeamYoonifer,multi21,0,AA00'))
         else:
-
-            # if (self.start_counter < 30):
-            #     self.move.linear.x = 0.35
-            #     self.move.angular.z = 0.7
             if (self.start_counter < 20):
                 self.move.linear.x = 0.7
                 self.move.angular.z = 1.4
-            # elif (self.start_counter < 42):
-            #     self.move.linear.x = 0
-            #     self.move.angular.z = 1.4
             elif (self.start_counter < 26):
                 self.move.linear.x = 0
                 self.move.angular.z = 2.8
@@ -534,10 +548,14 @@ class Driver:
                 self.start_seq_state = False
             self.twist_pub.publish(self.move)
             print(self.start_counter)
-            # cv2.waitKey(3)
 
         self.start_counter += 1
+
     def inner_loop_seq(self):
+        """
+        Executes the sequenece to turn into the inner loop from the intersection by publishing to gazebo.
+        Only to be ran when the inner loop sequence state is TRUE. Sets the state to be FALSE when completed.
+        """        
         if (self.inner_counter < 10):
             pass
         if (self.inner_counter < 20):
