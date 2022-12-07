@@ -46,7 +46,7 @@ class Driver:
     ROWS = 720
     COLS = 1280
     """crosswalk"""
-    CROSSWALK_FRONT_AREA_THRES = 5000-1000
+    CROSSWALK_FRONT_AREA_THRES = 5000-1500
     CROSSWALK_BACK_AREA_THRES = 400
     CROSSWALK_MSE_STOPPED_THRES = 9
     CROSSWALK_MSE_MOVING_THRES = 40
@@ -66,8 +66,8 @@ class Driver:
     RED_INTERSEC_PIX_THRES = 5
 
     """Outside loop control"""
-    NUM_CROSSWALK_STOP = 1
-    OUTSIDE_LOOP_SECS = 10 
+    NUM_CROSSWALK_STOP = 4
+    OUTSIDE_LOOP_SECS = 120 
 
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
@@ -168,7 +168,7 @@ class Driver:
             return
         elif self.turning_transition:
             print("turning transition")
-            # turn until blue area thres
+            # turn until blue area thres ################################## julian hardcord turn
             z = 1
             x = 0
             crped = ImageProcessor.crop(cv_image, row_start=int(720/2.2))
@@ -423,6 +423,11 @@ class Driver:
                     best_lp_freqs = self.lp_dict[lp][0]
                     best_lp = lp
                 combos[id] = best_lp
+
+        for i in range(6):
+            output_publish = String('TeamYoonifer,multi21,' + i + ',' + combos[i])
+            self.license_pub.publish(output_publish)
+
         return combos
 
     def is_red_line_close(self, img):  
