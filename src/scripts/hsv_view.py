@@ -199,7 +199,7 @@ class ImageProcessor:
 
     def truck_test(self, img):
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), int(1280/2.2), int(2*1280/2.5))
+        img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), int(1280/2.65), int(2*1280/2.65))
         # print(img.shape)
         self.process_image(img) 
         # print(self.temp_im)

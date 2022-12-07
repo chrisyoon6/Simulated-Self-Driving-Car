@@ -12,7 +12,6 @@ from model import Model
 from scrape_frames import DataScraper
 from plate_reader import PlateReader
 from pull_plate import PlatePull
-from copy import deepcopy
 import time
 from std_msgs.msg import String
 
@@ -64,7 +63,7 @@ class Driver:
     SLOW_DOWN_X_INNER = 0.35
     SLOW_DOWN_Z_INNER = 0.8
 
-    MIN_INNER_LP_FREQ = 3
+    MIN_INNER_ID_FREQ = 3
     """transition"""
     STRAIGHT_DEGS_THRES = 0.3
     RED_INTERSEC_PIX = 445
@@ -72,7 +71,7 @@ class Driver:
 
     """Outside loop control"""
     NUM_CROSSWALK_STOP = 4
-    OUTSIDE_LOOP_SECS = 150
+    OUTSIDE_LOOP_SECS = 120
 
     END_SECS = 230 
     """Turn to inside intersec"""
@@ -206,8 +205,8 @@ class Driver:
             self.predict_if_in_zone(cv_image, inner=True)
 
             self.twist_pub.publish(self.move)
-            if '7' in self.id_dict and '8' in self.id_dict and Driver.MIN_INNER_LP_FREQ < self.id_stats_dict['7'][0] and Driver.MIN_INNER_LP_FREQ < self.id_stats_dict['8'][0]:
-                # at least 3 good readings for both
+            if '7' in self.id_dict and '8' in self.id_dict and Driver.MIN_INNER_ID_FREQ < self.id_stats_dict['7'][0] and Driver.MIN_INNER_ID_FREQ < self.id_stats_dict['8'][0]:
+                # at least several good ID readings for both
                 self.inner_loop = False
                 self.publish_state_inner = True
             if (time.time() - self.start) > Driver.END_SECS:
@@ -220,7 +219,7 @@ class Driver:
             # turn until blue area thres ################################## julian hardcode turn
             
             self.turning_seq_inner_transition()
-            self.turning_seq_area_based()
+            # self.turning_seq_area_based(cv_image)
             return
         elif self.in_transition:
             # Only to be ran when outside predictions updated (stopped at crosswalk and ended outside). Gets the license plate ID and combo results to be published.
@@ -598,10 +597,20 @@ class Driver:
         best_lp = None
         best_lp_freqs = 0
         for lp in self.id_dict[id_str]:
-            # highest freqs
             if best_lp_freqs < self.lp_dict[lp][0]:
+                # highest freqs
                 best_lp_freqs = self.lp_dict[lp][0]
                 best_lp = lp
+            elif best_lp_freqs == self.lp_dict[lp][0]:
+                # if tie, then get one with higher magnitude of max of all prediction vectors
+                maxs_curr_best = np.array([np.amax(v) for v in self.lp_dict[best_lp][1]])
+                maxs_lp = np.array([np.amax(v) for v in self.lp_dict[lp][1]])
+                if np.sum(maxs_curr_best**2) < np.sum(maxs_lp**2):
+                    best_lp_freqs = self.lp_dict[lp][0]
+                    best_lp = lp
+                else:
+                    best_lp_freqs = self.lp_dict[lp][0]
+                    best_lp = lp
             self.results[id_str] = best_lp
 
         if inner and (id_str != "7" and id_str != "8"):
