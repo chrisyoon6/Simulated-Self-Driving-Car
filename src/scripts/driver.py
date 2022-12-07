@@ -70,13 +70,13 @@ class Driver:
     RED_INTERSEC_PIX_THRES = 5
 
     """Outside loop control"""
-    NUM_CROSSWALK_STOP = 3
+    NUM_CROSSWALK_STOP = 4
     OUTSIDE_LOOP_SECS = 120 
 
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
 
-    TRUCK_MSE_IN_MIN = 100
+    TRUCK_MSE_IN_MIN = 70
     TRUCK_MSE_OUT_MAX = 15 
     TRUCK_STOP_SECS = 0.5
 
@@ -150,7 +150,8 @@ class Driver:
         self.prev_mse_truck = None
 
         self.end_state = False
-
+        self.results = {}
+        self.id_int = 0
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -165,6 +166,8 @@ class Driver:
             data (sensor_msgs::Image): The image recieved from the robot's camera
         """
         if self.end_state:
+            output_publish = String('TeamYoonifer,multi21,-1,AA00')
+            self.license_pub.publish(output_publish)
             return
 
         if self.start_seq_state:
@@ -173,9 +176,16 @@ class Driver:
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.publish_state_inner:
-            print(self.get_plate_results(inner=True))
-            self.end_state = True
-            self.publish_state_inner = False
+            # print(self.get_plate_results(inner=True))
+            if self.id_int < 9:
+                self.get_plate_results2(self.id_int, inner=True)
+                self.id_int += 1
+            else:
+                self.post_process_preds(inner=True)
+                self.end_state = True
+                self.publish_state_inner = False
+                print(self.results)
+                self.print_stats()
             return
 
         if self.start_inner_loop:
@@ -254,15 +264,20 @@ class Driver:
             # STATE CHANGE: update predictions --> transition to inside
             print("TIME", self.curr_t - self.start)
             min_prob = 0.5
-            self.post_process_preds()      
+            self.post_process_preds(inner=False)      
             print("\n\n")
             print("PLATE RESULTS")
-            print(self.get_plate_results())
-            print("\n\n")
-            print("PRINTING STATS")
-            self.print_stats()
-            self.in_transition = True
-            self.update_preds_state = False
+
+            if self.id_int < 7:
+                self.get_plate_results2(self.id_int, inner=False)
+                self.id_int += 1
+            else:                
+                print("\n\n")
+                print(self.results)
+                print("PRINTING STATS")
+                self.print_stats()
+                self.in_transition = True
+                self.update_preds_state = False
             return
         self.curr_t = time.time()
         if (self.curr_t - self.start) > Driver.OUTSIDE_LOOP_SECS and self.num_crosswalks >= Driver.NUM_CROSSWALK_STOP and self.is_stopped_crosswalk:
@@ -413,7 +428,7 @@ class Driver:
 
         return False
 
-    def post_process_preds(self, min_prob=-1):
+    def post_process_preds(self, inner=False, min_prob=-1):
         """Post processes the predictions. Specifically, averages the prediction vector for all obtained predictions (previously, was a sum). 
         Args:
             min_prob (int, optional): Min probabilty that is accepted as a valid prediction. Only accepted if all maximum probabilities for each character is above this value. Defaults to -1.
@@ -421,10 +436,14 @@ class Driver:
         for id in self.id_dict:
             self.id_stats_dict[id][1] = np.around(1.0*self.id_stats_dict[id][1] / self.id_stats_dict[id][0], 3)
         for k in self.lp_dict:
+            if inner and (k != '7' or k != '8'):
+                continue
+            if not inner and (k == '7' or k == '8'):
+                continue
             val = [1.0*arr / self.lp_dict[k][0] for arr in self.lp_dict[k][1]]
-            # print("K,VAL", k, val)
+            print("K,VAL", k, val)
             val = [np.around(v,decimals=3) for v in val]
-            # print("K,VAL rounded", k, val)
+            print("K,VAL rounded", k, val)
             self.lp_dict[k][1] = np.array(val)
             flg = False
 
@@ -549,6 +568,31 @@ class Driver:
             self.license_pub.publish(output_publish)
 
         return combos
+    def get_plate_results2(self, id, inner=False):
+        """Obtains the best predictions for each license plate ID.
+
+        Returns:
+            dict[str, str]: a dictionary where the key is the plate ID, and the value is the best license plate name for that ID.
+        """        
+        id_str = str(id)
+        if id_str not in self.id_dict:
+            return
+        best_lp = None
+        best_lp_freqs = 0
+        for lp in self.id_dict[id_str]:
+            # highest freqs
+            if best_lp_freqs < self.lp_dict[lp][0]:
+                best_lp_freqs = self.lp_dict[lp][0]
+                best_lp = lp
+            self.results[id_str] = best_lp
+
+        if inner and (id_str != "7" and id_str != "8"):
+            return
+        elif not inner and (id_str == "7" or id_str == "8"):
+            return
+        print("--------------PUBLISHING--------------", id_str)
+        output_publish = String('TeamYoonifer,multi21,' + id_str + ',' + self.results[id_str])
+        self.license_pub.publish(output_publish)
 
     def is_red_line_close(self, img):  
         """Determines whether or not the robot is close to the red line.
