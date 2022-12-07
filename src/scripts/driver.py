@@ -71,10 +71,14 @@ class Driver:
 
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
+
+
+    TRUCK_MSE_IN_MIN = 100
+    TRUCK_MSE_OUT_MAX = 15 
+    TRUCK_STOP_SECS = 0.5
     """
     TODOS:
     - increase LP accuracy - mixing LA26 with LX26
-    - inner loop: find ways to be perpendicular with red line, build CNN
     """
     def __init__(self):
         """Creates a Driver object. Responsible for driving the robot throughout the track. 
@@ -122,15 +126,22 @@ class Driver:
 
         self.start_seq_state = True 
         self.start_counter = 0
+
         self.update_preds_state = False
         self.in_transition = False
         self.turning_transition = False
-        self.inner_loop = False
-        self.publish_state = False
-        self.inner_counter = 0
-        self.turning_seq_counter1 = 0
 
         self.start_inner_loop = False
+        self.inner_loop = False
+        self.inner_counter = 0
+        self.turning_seq_counter1 = 0
+        self.publish_state = False
+
+        self.was_truck_in = False
+        self.was_truck_out = False
+        self.truck_test_complete = False
+        self.truck_frames_count = 0
+
 
     def callback_img(self, data):
         """Callback function for the subscriber node for the /image_raw ros topic. 
@@ -155,6 +166,9 @@ class Driver:
         if self.start_inner_loop:
             # Facing the inner loop, executes the inner loop sequence by driving in and merging, only when the truck has been past
             # STATE CHANGE: start inner loop --> inner loop
+            if not self.truck_test_complete and self.can_enter_intersec(cv_image):
+                self.truck_test_complete = True
+                return
             self.inner_loop_seq()
             if not self.start_inner_loop:
                 self.inner_loop = True
@@ -319,6 +333,38 @@ class Driver:
             pass
         except CvBridgeError as e: 
             print(e)
+
+    def can_enter_intersec(self, img):
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), 320, 1280-2*320)
+        if self.prev_mse_frame is None:
+            self.prev_mse_frame = img_gray
+            return False
+        
+        mse = ImageProcessor.compare_frames(self.prev_mse_frame, img_gray)
+        print("mse:", mse)
+        print("truck in, truck out:" , self.was_truck_in, self.was_truck_out)
+        self.prev_mse_frame = img_gray
+        
+        if self.truck_frames_count <= int(Driver.TRUCK_STOP_SECS*Driver.FPS):
+            self.truck_frames_count += 1
+            return False
+
+        if mse < Driver.TRUCK_MSE_OUT_MAX:
+            if not self.was_truck_out:
+                self.was_truck_out = True
+                return False
+            if self.was_truck_in and self.was_truck_out:
+                self.prev_mse_frame = None
+                self.truck_frames_count = 0
+                return True
+
+        if mse > Driver.TRUCK_MSE_IN_MIN:
+            if not self.was_truck_in:
+                self.was_truck_in = True
+                return False
+
+        return False
 
     def post_process_preds(self, min_prob=-1):
         """Post processes the predictions. Specifically, averages the prediction vector for all obtained predictions (previously, was a sum). 

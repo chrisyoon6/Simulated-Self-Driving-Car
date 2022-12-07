@@ -148,7 +148,8 @@ class ImageProcessor:
             print(e)
 
         # self.test_hugh_trans(cv_image)
-        self.blue_area(cv_image)
+        # self.blue_area(cv_image)
+        self.truck_test(cv_image)
         ##
         # img_gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         # img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
@@ -195,10 +196,23 @@ class ImageProcessor:
                 print(np.rad2deg(np.arctan((y2-y1)/(x2-x1))))
                 print(y1,y2)
                 print("")
+
+    def truck_test(self, img):
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), int(1280/2.2), int(2*1280/2.5))
+        # print(img.shape)
+        self.process_image(img) 
+        # print(self.temp_im)
+        mse = -1
+        if self.temp_im is not None:
+            mse = ImageProcessor.compare_frames(self.temp_im, img_gray)
+        print("mse:", mse)
+        self.temp_im = img_gray
+        cv2.imshow('script_view', img_gray)
+        cv2.waitKey(3)
         
 
 def main(args):
-  
     ic = ImageProcessor()
     rospy.init_node('ImageProcessor', anonymous=True)
     try:
