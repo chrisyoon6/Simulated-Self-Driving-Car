@@ -669,6 +669,8 @@ class Driver:
         """        
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
+        cv2.imshow("Crosswalk view", img_gray)
+        cv2.waitKey(1)
         if self.prev_mse_frame is None:
             self.prev_mse_frame = img_gray
             return False
