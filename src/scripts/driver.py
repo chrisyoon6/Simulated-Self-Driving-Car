@@ -60,6 +60,10 @@ class Driver:
 
     SLOW_DOWN_X = 0.07
     SLOW_DOWN_Z = 0.55
+
+    SLOW_DOWN_X_INNER = 0.2
+    SLOW_DOWN_Z_INNER = 0.8
+
     """transition"""
     STRAIGHT_DEGS_THRES = 0.3
     RED_INTERSEC_PIX = 445
@@ -72,10 +76,12 @@ class Driver:
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
 
-
     TRUCK_MSE_IN_MIN = 100
     TRUCK_MSE_OUT_MAX = 15 
     TRUCK_STOP_SECS = 0.5
+
+    INNER_X = 0.4
+
     """
     TODOS:
     - increase LP accuracy - mixing LA26 with LX26
@@ -135,7 +141,7 @@ class Driver:
         self.inner_loop = False
         self.inner_counter = 0
         self.turning_seq_counter1 = 0
-        self.publish_state = False
+        self.publish_state_inner = False
 
         self.was_truck_in = False
         self.was_truck_out = False
@@ -161,9 +167,10 @@ class Driver:
             return
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        if self.publish_state:
-            
+        if self.publish_state_inner:
+
             return
+
         if self.start_inner_loop:
             # Facing the inner loop, executes the inner loop sequence by driving in and merging, only when the truck has been past
             # STATE CHANGE: start inner loop --> inner loop
@@ -176,21 +183,28 @@ class Driver:
                 self.inner_loop = True
             return
         if self.inner_loop:
-            hsv = DataScraper.process_img(cv_image, type="bgr")
-            predicted = self.inner_dv_mod.predict(hsv)
-            pred_ind = np.argmax(predicted)
-            # self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
-            x = Driver.ONE_HOT[pred_ind][0]
-            self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
-            if x > 0:
-                x = 0.4
-            elif x < 0:
-                x = -0.4
-            self.move.linear.x = x
+            # hsv = DataScraper.process_img(cv_image, type="bgr")
+            # predicted = self.inner_dv_mod.predict(hsv)
+            # pred_ind = np.argmax(predicted)
+            # # self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
+            # x = Driver.ONE_HOT[pred_ind][0]
+            # self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
+            # if x > 0:
+            #     x = 0.4
+            # elif x < 0:
+            #     x = -0.4
+            # self.move.linear.x = x
+            self.predict_zone(cv_image, inner=True)
+            self.predict_if_in_zone(cv_image)
+
             self.twist_pub.publish(self.move)
+            if '7' in self.id_dict and '8' in self.id_dict and 5 < self.id_stats_dict['7'][0] and 5 < self.id_stats_dict['8'][0]:
+                # at least 5 good readings for both
+                self.inner_loop = False
+                self.publish_state_inner = True
             if (time.time() - self.start > 230):
                 self.inner_loop = False
-                self.publish_state = True
+                self.publish_state_inner = True
             return
         elif self.turning_transition:
             # At the intersection, turns left to face the inner loop.
@@ -271,42 +285,7 @@ class Driver:
                 # self.num_crosswalks += 1
             return
 
-        hsv = DataScraper.process_img(cv_image, type="bgr")
-        predicted = self.dv_mod.predict(hsv)
-
-        pred_ind = np.argmax(predicted)
-        self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
-        self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
-        
-        r_st = int(Driver.ROWS/2.5)
-        crped = ImageProcessor.crop(cv_image, row_start=r_st)
-        blu_area = PlatePull.get_contours_area(ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up))
-        print("Blue area:", blu_area)
-
-        if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER or self.num_fast_frames < Driver.SLOW_DOWN_AREA_FRAMES:
-            # Assumes close to a license plate, slows down and allows the prediction to be considered
-            x = round(self.move.linear.x, 6) 
-            z = round(self.move.angular.z, 6)
-            if x > 0:
-                x = Driver.SLOW_DOWN_X
-            elif x < 0:
-                x = -1*Driver.SLOW_DOWN_X
-            if z > 0:
-                z = Driver.SLOW_DOWN_Z
-            elif z < 0:
-                z = -1*Driver.SLOW_DOWN_Z
-
-            self.move.linear.x = x
-            self.move.angular.z = z
-            if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER:
-                # only go faster again after a continous number of frames with blue area outside a range.
-                self.num_fast_frames = 0    
-            else:
-                self.num_fast_frames += 1
-            self.acquire_lp = True
-        else:
-            # predicted license plate but not considered.
-            self.acquire_lp = False
+        self.predict_zone(cv_image, inner=False)
 
         if self.is_crossing_crosswalk:
             # crossing the crosswalk. does not look for the red line at this period and drives faster.
@@ -328,12 +307,7 @@ class Driver:
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
 
-        pred_id, pred_id_vec = self.pr.prediction_data_id(cv_image)
-        if pred_id:
-            pred_lp, pred_lp_vecs = self.pr.prediction_data_license(cv_image)
-            if pred_lp and self.acquire_lp:
-                # only update predictions if there has been a prediction and when slowed down 
-                self.update_predictions(pred_id, pred_id_vec, pred_lp, pred_lp_vecs)
+        self.predict_if_in_zone(cv_image)
 
         try:
             # print("------------Move-------------",self.move.linear.x, self.move.angular.z)
@@ -341,6 +315,64 @@ class Driver:
             pass
         except CvBridgeError as e: 
             print(e)
+
+    def predict_zone(self, cv_image, inner=False):
+        hsv = DataScraper.process_img(cv_image, type="bgr")
+        
+        predicted = None
+        if inner:
+            predicted = self.inner_dv_mod.predict(hsv)
+        else:
+            predicted = self.dv_mod.predict(hsv)
+
+        pred_ind = np.argmax(predicted)
+        self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
+        self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
+        if inner:
+            if self.move.linear.x > 0:
+                self.move.linear.x = Driver.INNER_X
+            elif self.move.linear.x < 0:
+                self.move.linear.x = -1*Driver.INNER_X
+            
+        r_st = int(Driver.ROWS/2.5)
+        crped = ImageProcessor.crop(cv_image, row_start=r_st)
+        blu_area = PlatePull.get_contours_area(ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up))
+        print("Blue area:", blu_area)
+
+        if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER or self.num_fast_frames < Driver.SLOW_DOWN_AREA_FRAMES:
+            # Assumes close to a license plate, slows down and allows the prediction to be considered
+            x = round(self.move.linear.x, 6) 
+            z = round(self.move.angular.z, 6)
+            slow_x = Driver.SLOW_DOWN_X_INNER if inner else Driver.SLOW_DOWN_X
+            slow_z = Driver.SLOW_DOWN_Z_INNER if inner else Driver.SLOW_DOWN_Z
+            if x > 0:
+                x = slow_x
+            elif x < 0:
+                x = -1*slow_x
+            if z > 0:
+                z = slow_z
+            elif z < 0:
+                z = -1*slow_z
+
+            self.move.linear.x = x
+            self.move.angular.z = z
+            if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER:
+                # only go faster again after a continous number of frames with blue area outside a range.
+                self.num_fast_frames = 0    
+            else:
+                self.num_fast_frames += 1
+            self.acquire_lp = True
+        else:
+            # predicted license plate but not considered.
+            self.acquire_lp = False
+
+    def predict_if_in_zone(self, cv_image):
+        pred_id, pred_id_vec = self.pr.prediction_data_id(cv_image)
+        if pred_id:
+            pred_lp, pred_lp_vecs = self.pr.prediction_data_license(cv_image)
+            if pred_lp and self.acquire_lp:
+                # only update predictions if there has been a prediction and when slowed down 
+                self.update_predictions(pred_id, pred_id_vec, pred_lp, pred_lp_vecs)
 
     def can_enter_intersec(self, img):
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
