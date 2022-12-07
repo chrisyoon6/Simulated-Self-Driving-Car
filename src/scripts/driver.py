@@ -27,7 +27,7 @@ NOTES:
 class Driver:
     DEF_VALS = (0.5, 0.5)
     MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model-0.h5"
-    INNER_MOD_PATH = "/home/fizzer/ros_ws/src/models/inner-drive-model-0.1.h5"
+    INNER_MOD_PATH = "/home/fizzer/ros_ws/src/models/inner-drive-model-5.h5"
     """
     (0.5,0) = 0
     (0, -1) = 1
