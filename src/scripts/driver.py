@@ -168,7 +168,7 @@ class Driver:
 
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.publish_state_inner:
-
+            self.get_plate_results(inner=True)
             return
 
         if self.start_inner_loop:
@@ -511,7 +511,7 @@ class Driver:
                 maxs.append(np.amax(c))
             print("MAXS: ", maxs)
 
-    def get_plate_results(self):
+    def get_plate_results(self, inner=False):
         """Obtains the best predictions for each license plate ID.
 
         Returns:
@@ -529,7 +529,9 @@ class Driver:
                 combos[id] = best_lp
 
         for id in self.id_dict:
-            if id == '7' or id == '8':
+            if inner and (id != '7' and id != '8'):
+                continue
+            if not inner and (id == '7' or id == '8'):
                 continue
             output_publish = String('TeamYoonifer,multi21,' + id + ',' + combos[id])
             self.license_pub.publish(output_publish)
