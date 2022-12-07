@@ -64,6 +64,7 @@ class Driver:
     SLOW_DOWN_X_INNER = 0.35
     SLOW_DOWN_Z_INNER = 0.8
 
+    MIN_INNER_LP_FREQ = 3
     """transition"""
     STRAIGHT_DEGS_THRES = 0.3
     RED_INTERSEC_PIX = 445
@@ -71,8 +72,9 @@ class Driver:
 
     """Outside loop control"""
     NUM_CROSSWALK_STOP = 4
-    OUTSIDE_LOOP_SECS = 120 
+    OUTSIDE_LOOP_SECS = 150
 
+    END_SECS = 230 
     """Turn to inside intersec"""
     BLUE_AREA_THRES_TURN = 10000
 
@@ -184,7 +186,7 @@ class Driver:
                 self.post_process_preds(inner=True)
                 self.end_state = True
                 self.publish_state_inner = False
-                print(self.results)
+                print("RESULTS", self.results)
                 self.print_stats()
             return
 
@@ -192,7 +194,7 @@ class Driver:
             # Facing the inner loop, executes the inner loop sequence by driving in and merging, only when the truck has been past
             # STATE CHANGE: start inner loop --> inner loop
             if not self.truck_test_complete:
-                if self.can_enter_intersec(cv_image):
+                if self.can_enter_inner(cv_image):
                     self.truck_test_complete = True
                 return
             self.inner_loop_seq()
@@ -200,46 +202,25 @@ class Driver:
                 self.inner_loop = True
             return
         if self.inner_loop:
-            # hsv = DataScraper.process_img(cv_image, type="bgr")
-            # predicted = self.inner_dv_mod.predict(hsv)
-            # pred_ind = np.argmax(predicted)
-            # # self.move.linear.x = Driver.ONE_HOT[pred_ind][0]
-            # x = Driver.ONE_HOT[pred_ind][0]
-            # self.move.angular.z = Driver.ONE_HOT[pred_ind][1]
-            # if x > 0:
-            #     x = 0.4
-            # elif x < 0:
-            #     x = -0.4
-            # self.move.linear.x = x
             self.predict_zone(cv_image, inner=True)
             self.predict_if_in_zone(cv_image, inner=True)
 
             self.twist_pub.publish(self.move)
-            if '7' in self.id_dict and '8' in self.id_dict and 3 < self.id_stats_dict['7'][0] and 3 < self.id_stats_dict['8'][0]:
-                # at least 5 good readings for both
+            if '7' in self.id_dict and '8' in self.id_dict and Driver.MIN_INNER_LP_FREQ < self.id_stats_dict['7'][0] and Driver.MIN_INNER_LP_FREQ < self.id_stats_dict['8'][0]:
+                # at least 3 good readings for both
                 self.inner_loop = False
                 self.publish_state_inner = True
-            if (time.time() - self.start > 230):
+            if (time.time() - self.start) > Driver.END_SECS:
                 self.inner_loop = False
                 self.publish_state_inner = True
             return
         elif self.turning_transition:
             # At the intersection, turns left to face the inner loop.
-            # STATE CHANGE: turning transition --> start inner loop sequenc
-            # turn until blue area thres ################################## julian hardcord turn
-            z = 1
-            x = 0
-            crped = ImageProcessor.crop(cv_image, row_start=int(720/2.2))
-            blu_crped = ImageProcessor.filter_blue(crped)
-            largest_blu_area = ImageProcessor.contours_area(blu_crped)[0]
-            print("largest blue area", largest_blu_area)
-            if largest_blu_area and largest_blu_area > Driver.BLUE_AREA_THRES_TURN:
-                z = 0
-                self.turning_transition = False
-                self.start_inner_loop = True
-            self.move.linear.x = x
-            self.move.angular.z = z
-            self.twist_pub.publish(self.move)
+            # STATE CHANGE: turning transition --> start inner loop sequence
+            # turn until blue area thres ################################## julian hardcode turn
+            
+            self.turning_seq_inner_transition()
+            self.turning_seq_area_based()
             return
         elif self.in_transition:
             # Only to be ran when outside predictions updated (stopped at crosswalk and ended outside). Gets the license plate ID and combo results to be published.
@@ -264,7 +245,6 @@ class Driver:
             # STATE CHANGE: update predictions --> transition to inside
             print("TIME", self.curr_t - self.start)
             min_prob = 0.5
-            self.post_process_preds(inner=False)      
             print("\n\n")
             print("PLATE RESULTS")
 
@@ -272,6 +252,7 @@ class Driver:
                 self.get_plate_results2(self.id_int, inner=False)
                 self.id_int += 1
             else:                
+                self.post_process_preds(inner=False)      
                 print("\n\n")
                 print(self.results)
                 print("PRINTING STATS")
@@ -339,6 +320,13 @@ class Driver:
             print(e)
 
     def predict_zone(self, cv_image, inner=False):
+        """Predicts the velocity for the robot to drive at. Decreases its speed if close enough to license plates
+        and allows predictions to be valid.
+
+        Args:
+            cv_image (cv::Mat): Raw image data from gazebo.
+            inner (bool, optional): True if called when in the inner loop. Defaulted to False.
+        """        
         hsv = DataScraper.process_img(cv_image, type="bgr")
         
         predicted = None
@@ -389,6 +377,13 @@ class Driver:
             self.acquire_lp = False
 
     def predict_if_in_zone(self, cv_image, inner=False):
+        """Updates the license plate ID and char predictions that were made by the model, only if 
+        in a state to do so (i.e. predictions close to the LP)
+
+        Args:
+            cv_image (cv::Mat): Raw image data from gazebo.
+            inner (bool, optional): True if called when in the inner loop. Defaulted to False.
+        """        
         pred_id, pred_id_vec = self.pr.prediction_data_id(cv_image)
         if pred_id:
             pred_lp, pred_lp_vecs = self.pr.prediction_data_license(cv_image)
@@ -396,13 +391,24 @@ class Driver:
                 # only update predictions if there has been a prediction and when slowed down 
                 self.update_predictions(pred_id, pred_id_vec, pred_lp, pred_lp_vecs, inner)
 
-    def can_enter_intersec(self, img):
+    def can_enter_inner(self, img):
+        """Determines wheter or not the robot can enter in the inner loop, when faced towards it at
+        an intersection. Specifically, it will move when the truck has passed the intersection
+
+        Args:
+            img (cv::Mat): Raw image data from gazebo
+
+        Returns:
+            bool: True if the robot can enter the inner loop.
+        """        
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), 320, 1280-2*320)
+        img_gray = ImageProcessor.crop(img_gray, int(Driver.ROWS/3), int(2*Driver.ROWS/3), int(Driver.COLS/2.65), int(2*Driver.COLS/2.65))
+
         if self.prev_mse_truck is None:
             self.prev_mse_truck = img_gray
             return False
-        
+        cv2.imshow("truck find", img_gray)
+        cv2.waitKey(1)
         mse = ImageProcessor.compare_frames(self.prev_mse_truck, img_gray)
         print("mse:", mse)
         print("truck in, truck out:" , self.was_truck_in, self.was_truck_out)
@@ -431,19 +437,27 @@ class Driver:
     def post_process_preds(self, inner=False, min_prob=-1):
         """Post processes the predictions. Specifically, averages the prediction vector for all obtained predictions (previously, was a sum). 
         Args:
+            inner (bool, optional): True if called when in the inner loop. Defaulted to False.
             min_prob (int, optional): Min probabilty that is accepted as a valid prediction. Only accepted if all maximum probabilities for each character is above this value. Defaults to -1.
         """        
         for id in self.id_dict:
+            if inner and (id != "7" and id != "8"):
+                continue
+            if not inner and (id == "7" or id == "8"):
+                continue
             self.id_stats_dict[id][1] = np.around(1.0*self.id_stats_dict[id][1] / self.id_stats_dict[id][0], 3)
+        
         for k in self.lp_dict:
-            if inner and (k != '7' or k != '8'):
-                continue
-            if not inner and (k == '7' or k == '8'):
-                continue
+            if ("7" in self.id_dict and "8" in self.id_dict):
+                if inner and (k not in self.id_dict["7"] and k not in self.id_dict["8"]):
+                    continue
+                if not inner and (k in self.id_dict["7"] or k in self.id_dict["8"]):
+                    continue
+
             val = [1.0*arr / self.lp_dict[k][0] for arr in self.lp_dict[k][1]]
-            print("K,VAL", k, val)
+            # print("K,VAL", k, val)
             val = [np.around(v,decimals=3) for v in val]
-            print("K,VAL rounded", k, val)
+            # print("K,VAL rounded", k, val)
             self.lp_dict[k][1] = np.array(val)
             flg = False
 
@@ -455,6 +469,7 @@ class Driver:
             pred_id_vec (array): a 1D numpy array of the predicted probabilities for the ID number.
             pred_lp (str): the predicted license plate combos
             pred_lp_vecs (ndarray): s 2D numpy array, where each element is the predicited probabilties for the corresponding character
+            inner (bool, optional): True if called when in the inner loop. Defaulted to False.
         """        
         # id -> set[license plates]
         if not inner and (pred_id == "7" or pred_id =="8"):
@@ -524,6 +539,7 @@ class Driver:
         """
         Prints the statistics for the obtained ID, license plates.
         """        
+        print("------PRINTING STATS-------")
         print("IDS:")
         for id in self.id_dict:
             print("----", id, "-----")
@@ -542,7 +558,8 @@ class Driver:
 
     def get_plate_results(self, inner=False):
         """Obtains the best predictions for each license plate ID.
-
+        Args:
+            inner (bool, optional): True if called when in the inner loop. Defaulted to False.
         Returns:
             dict[str, str]: a dictionary where the key is the plate ID, and the value is the best license plate name for that ID.
         """        
@@ -570,7 +587,8 @@ class Driver:
         return combos
     def get_plate_results2(self, id, inner=False):
         """Obtains the best predictions for each license plate ID.
-
+        Args:
+            inner (bool, optional): True if called when in the inner loop. Defaulted to False.
         Returns:
             dict[str, str]: a dictionary where the key is the plate ID, and the value is the best license plate name for that ID.
         """        
@@ -698,7 +716,12 @@ class Driver:
 
         self.start_counter += 1
 
-    def turning_seq1(self):
+    def turning_seq_inner_transition(self):
+        """
+        The sequence to merge the robot into the inner loop, when faced towards the inner loop at
+        an intersection.
+        Publishes velocity values.
+        """        
         if (self.turning_seq_counter1 < 20):
             self.move.linear.x = 0
             self.move.angular.z = 1.54
@@ -706,16 +729,34 @@ class Driver:
             self.move.angular.z = 0
             self.move.linear.x = 0
             
-            self.turning_transition = False
-            
-            ###################### CHECK FOR CAR
-            # check_for_car = True
-            
+            self.turning_transition = False    
             self.start_inner_loop = True
 
         self.twist_pub.publish(self.move)
         self.turning_seq_counter1 += 1
     
+    def turning_seq_area_based(self, cv_image):
+        """
+        Sequence to merge robot into the inner loop, when faced towards the inner loop at intersection.
+        Stops turning left and considered facing by comparing the image's blue area as reference.
+
+        Args:
+            cv_image (cv::Mat): Raw image data from gazebo
+        """        
+        z = 1
+        x = 0
+        crped = ImageProcessor.crop(cv_image, row_start=int(720/2.2))
+        blu_crped = ImageProcessor.filter_blue(crped)
+        largest_blu_area = ImageProcessor.contours_area(blu_crped)[0]
+        print("largest blue area", largest_blu_area)
+        if largest_blu_area and largest_blu_area > Driver.BLUE_AREA_THRES_TURN:
+            z = 0
+            self.turning_transition = False
+            self.start_inner_loop = True
+        self.move.linear.x = x
+        self.move.angular.z = z
+        self.twist_pub.publish(self.move)
+
     def inner_loop_seq(self):
         """
         Executes the sequenece to turn into the inner loop from the intersection by publishing to gazebo.
