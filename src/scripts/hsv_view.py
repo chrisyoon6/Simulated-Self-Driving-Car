@@ -114,7 +114,6 @@ class ImageProcessor:
             col_end = cols
         return img[row_start:row_end, col_start:col_end]
 
-
     @staticmethod
     def filter_plate(image, hsv_low, hsv_up):
         """Filters and blurs the license plate image to the hsv ranges specified
@@ -146,27 +145,8 @@ class ImageProcessor:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)
-
-        # self.test_hugh_trans(cv_image)
-        # self.blue_area(cv_image)
         self.truck_test(cv_image)
-        ##
-        # img_gray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        # img_gray = ImageProcessor.crop(img_gray, 180, 720-180, 320, 1280-320)
-        # # print(cv_image.shape)
-        # self.process_image(cv_image) 
-        # # print(self.temp_im)
-        # mse = -1
-        # if self.temp_im is not None:
-        #     mse = ImageProcessor.compare_frames(self.temp_im, img_gray)
-        # # contours = PlatePull.get_contours_area(self.red_im, 3)
-        # # print("Contours:", contours)
-        # print("mse:", mse)
-        # self.temp_im = img_gray
-        # # cv2.imshow('script_view', img_gray)
-        # cv2.imshow('script_view', self.red_im)
-        # cv2.waitKey(3)
-        ##
+
     def contours_area(img,nums=1):
         contours, hierarchy = cv2.findContours(
             image=img, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
@@ -175,6 +155,7 @@ class ImageProcessor:
             cs = cs[:nums]
         areas = [cv2.contourArea(c) for c in cs] 
         return areas
+    
     def blue_area(self, cv_image):
         crped = ImageProcessor.crop(cv_image, row_start=int(720/2.2))
         blu_crped = ImageProcessor.filter_blue(crped)
@@ -200,9 +181,7 @@ class ImageProcessor:
     def truck_test(self, img):
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img_gray = ImageProcessor.crop(img_gray, int(720/3), int(2*720/3), int(1280/2.65), int(2*1280/2.65))
-        # print(img.shape)
         self.process_image(img) 
-        # print(self.temp_im)
         mse = -1
         if self.temp_im is not None:
             mse = ImageProcessor.compare_frames(self.temp_im, img_gray)

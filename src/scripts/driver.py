@@ -15,14 +15,6 @@ from pull_plate import PlatePull
 import time
 from std_msgs.msg import String
 
-plate_dir = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/plate_temp2"
-
-"""
-NOTES:
-- inner loop: more straight data at corners 
-- intersection handling (i.e. going into inner loop)
-"""
-
 class Driver:
     DEF_VALS = (0.5, 0.5)
     MODEL_PATH = "/home/fizzer/ros_ws/src/models/drive_model-0.h5"
@@ -83,10 +75,6 @@ class Driver:
 
     INNER_X = 0.5
 
-    """
-    TODOS:
-    - increase LP accuracy - mixing LA26 with LX26
-    """
     def __init__(self):
         """Creates a Driver object. Responsible for driving the robot throughout the track. 
         """            
@@ -170,14 +158,11 @@ class Driver:
             output_publish = String('TeamYoonifer,multi21,-1,AA00')
             self.license_pub.publish(output_publish)
             return
-
         if self.start_seq_state:
             self.start_seq()
             return
-
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         if self.publish_state_inner:
-            # print(self.get_plate_results(inner=True))
             if self.id_int < 9:
                 self.get_plate_results2(self.id_int, inner=True)
                 self.id_int += 1
@@ -188,7 +173,6 @@ class Driver:
                 print("RESULTS", self.results)
                 self.print_stats()
             return
-
         if self.start_inner_loop:
             # Facing the inner loop, executes the inner loop sequence by driving in and merging, only when the truck has been past
             # STATE CHANGE: start inner loop --> inner loop
@@ -216,10 +200,7 @@ class Driver:
         elif self.turning_transition:
             # At the intersection, turns left to face the inner loop.
             # STATE CHANGE: turning transition --> start inner loop sequence
-            # turn until blue area thres ################################## julian hardcode turn
-            
             self.turning_seq_inner_transition()
-            # self.turning_seq_area_based(cv_image)
             return
         elif self.in_transition:
             # Only to be ran when outside predictions updated (stopped at crosswalk and ended outside). Gets the license plate ID and combo results to be published.
@@ -236,7 +217,6 @@ class Driver:
             if x_st == 0 and z_st == 0:
                 self.in_transition = False
                 self.turning_transition = True
-            print("------------Move-------------",self.move.linear.x, self.move.angular.z)
             self.twist_pub.publish(self.move)
             return
         elif self.update_preds_state and self.outside_ended:
@@ -246,7 +226,6 @@ class Driver:
             min_prob = 0.5
             print("\n\n")
             print("PLATE RESULTS")
-
             if self.id_int < 7:
                 self.get_plate_results2(self.id_int, inner=False)
                 self.id_int += 1
@@ -286,9 +265,7 @@ class Driver:
                 self.first_crosswalk_stop = True
                 # self.num_crosswalks += 1
             return
-
         self.predict_zone(cv_image, inner=False)
-
         if self.is_crossing_crosswalk:
             # crossing the crosswalk. does not look for the red line at this period and drives faster.
             self.crossing_crosswalk_count += 1
@@ -299,7 +276,6 @@ class Driver:
             self.move.linear.x = x
             self.is_crossing_crosswalk = self.crossing_crosswalk_count < Driver.DRIVE_PAST_CROSSWALK_FRAMES  
             # print("crossing")
-
         if not self.is_crossing_crosswalk and self.is_red_line_close(cv_image):
             # check if red line close only when not crossing
             self.crossing_crosswalk_count = 0 
@@ -308,11 +284,8 @@ class Driver:
             self.move.angular.z = 0.0
             self.is_stopped_crosswalk = True
             self.first_stopped_frame = True
-
         self.predict_if_in_zone(cv_image)
-
         try:
-            # print("------------Move-------------",self.move.linear.x, self.move.angular.z)
             self.twist_pub.publish(self.move)
             pass
         except CvBridgeError as e: 
@@ -346,7 +319,6 @@ class Driver:
         r_st = int(Driver.ROWS/2.5)
         crped = ImageProcessor.crop(cv_image, row_start=r_st)
         blu_area = PlatePull.get_contours_area(ImageProcessor.filter(crped, ImageProcessor.blue_low, ImageProcessor.blue_up))
-        print("Blue area:", blu_area)
 
         if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER or self.num_fast_frames < Driver.SLOW_DOWN_AREA_FRAMES:
             # Assumes close to a license plate, slows down and allows the prediction to be considered
@@ -366,13 +338,13 @@ class Driver:
             self.move.linear.x = x
             self.move.angular.z = z
             if blu_area and blu_area[0] > Driver.SLOW_DOWN_AREA_LOWER and blu_area[0] < Driver.SLOW_DOWN_AREA_UPPER:
-                # only go faster again after a continous number of frames with blue area outside a range.
+                # only go faster again after a continous number of frames with blue area outside a range
                 self.num_fast_frames = 0    
             else:
                 self.num_fast_frames += 1
             self.acquire_lp = True
         else:
-            # predicted license plate but not considered.
+            # predicted license plate but not considered
             self.acquire_lp = False
 
     def predict_if_in_zone(self, cv_image, inner=False):
@@ -454,9 +426,7 @@ class Driver:
                     continue
 
             val = [1.0*arr / self.lp_dict[k][0] for arr in self.lp_dict[k][1]]
-            # print("K,VAL", k, val)
             val = [np.around(v,decimals=3) for v in val]
-            # print("K,VAL rounded", k, val)
             self.lp_dict[k][1] = np.array(val)
             flg = False
 
@@ -473,18 +443,15 @@ class Driver:
         # id -> set[license plates]
         if not inner and (pred_id == "7" or pred_id =="8"):
             return
-
         if not pred_id in self.id_dict:
             self.id_dict[pred_id] = set()
         self.id_dict[pred_id].add(pred_lp)
-
         # id -> (freq, prediction vector)
         if not pred_id in self.id_stats_dict:
             self.id_stats_dict[pred_id] = [1,pred_id_vec]
         else:
             self.id_stats_dict[pred_id][0] += 1
             self.id_stats_dict[pred_id][1] += pred_id_vec
-
         # license plates -> (freq, prediction vector)
         if not pred_lp in self.lp_dict:
             self.lp_dict[pred_lp] = [1, pred_lp_vecs]
@@ -532,6 +499,7 @@ class Driver:
             else:
                 lin_state = 1
             return (ang_state, lin_state)
+        
         return (-2,-2)
 
     def print_stats(self):
@@ -631,17 +599,11 @@ class Driver:
             bool: True if deemed close to the red line, False otherwise.
         """        
         red_filt = ImageProcessor.filter(img, ImageProcessor.red_low, ImageProcessor.red_up)
-        # cv2.imshow('script_view', red_filt)
-        # cv2.waitKey(3)
         area = PlatePull.get_contours_area(red_filt,2)
-        print("---Red Area", area)
         if not list(area):
             return False
-
         if len(list(area)) == 1:
             return area[0] > Driver.CROSSWALK_FRONT_AREA_THRES
-
-        # return area[0] > Driver.CROSSWALK_FRONT_AREA_THRES and area[1] > Driver.CROSSWALK_BACK_AREA_THRES
         return area[0] > Driver.CROSSWALK_FRONT_AREA_THRES
     
     @staticmethod
@@ -675,16 +637,12 @@ class Driver:
             self.prev_mse_frame = img_gray
             return False
         
-        
         mse = ImageProcessor.compare_frames(self.prev_mse_frame, img_gray)
-        print("mse:", mse)
-        print("first ped stopped, first ped move:" , self.first_ped_stopped, self.first_ped_moved)
         self.prev_mse_frame = img_gray
         
         if self.first_stopped_frames_count <= int(Driver.FIRST_STOP_SECS*Driver.FPS):
             self.first_stopped_frames_count += 1
             return False
-
         if mse < Driver.CROSSWALK_MSE_STOPPED_THRES:
             if not self.first_ped_stopped:
                 self.first_ped_stopped = True
@@ -693,12 +651,11 @@ class Driver:
                 self.prev_mse_frame = None
                 self.first_stopped_frames_count = 0
                 return True
-
         if mse > Driver.CROSSWALK_MSE_MOVING_THRES:
             if not self.first_ped_moved:
                 self.first_ped_moved = True
                 return False
-
+        
         return False
     
     def start_seq(self):
@@ -724,7 +681,7 @@ class Driver:
                 self.start_seq_state = False
             self.twist_pub.publish(self.move)
             print(self.start_counter)
-
+        
         self.start_counter += 1
 
     def turning_seq_inner_transition(self):
@@ -790,6 +747,7 @@ class Driver:
         print(self.inner_counter)
 
         self.inner_counter += 1
+        
 def main(args):    
     rospy.init_node('Driver', anonymous=True)
     dv = Driver()

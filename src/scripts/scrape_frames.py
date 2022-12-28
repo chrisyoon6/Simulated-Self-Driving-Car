@@ -14,13 +14,8 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
 import numpy as np
-# import keyboard
 
 class DataScraper:
-    # SET_X = 0.5-0.2
-    # SET_Z = 1.0-0.175
-    # SET_X = 0.5
-    # SET_Z = 1.0
     SET_X = 0.5-0.25
     SET_Z = 0.8
     ERR_X = 0.1
@@ -47,6 +42,7 @@ class DataScraper:
         Scraping starts when 't' has been clicked on teleop 
         (i.e. giving linear z= 0.5) and stops when 'b' has been clicked on teleop (linear z =-0.5).
         Also ignores the input if the robot is not moving. 
+       
         Args:
             data (sensor_msgs::Image): The msg (image) recieved from /image_raw topic (i.e. robot's camera)
         """        
@@ -60,14 +56,11 @@ class DataScraper:
             return
         if self.twist[0] == 0 and self.twist[1] == 0:
             return
-        print(self.twist[0], self.twist[1])
         cv_image = self.bridge.imgmsg_to_cv2(data, desired_encoding='passthrough')
         hsv = DataScraper.process_img(cv_image, type='rgb')
         cv2.imshow('filtered', hsv)
         cv2.waitKey(1)
         x,z = DataScraper.discretize_vals(self.twist[0], self.twist[1], DataScraper.ERR_X, DataScraper.ERR_Z, DataScraper.SET_X, DataScraper.SET_Z)
-        print(x, z)
-        print('\n')
         name = "_".join([str(self.count), str(x), str(z)])
         name += ".png"
         cv2.imwrite(os.path.join(self.dirPath_raw, name), cv_image)
@@ -82,7 +75,6 @@ class DataScraper:
             data (sensor_msgs::Twist): Twist object containing the robot's current velocities
         """        
         self.twist = (data.linear.x, data.angular.z, data.linear.z)
-        # print(self.twist[0], self.twist[1])
 
     @staticmethod
     def process_img(img, type='bgr'):
@@ -162,37 +154,6 @@ def temp():
         pass
     cv2.destroyAllWindows()
 
-from PIL import Image as Image_PIL
-def temp2():
-    folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv"
-    comp_folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-compressed"
-    for filename in os.listdir(folder):
-        img = np.array(Image_PIL.open(os.path.join(folder, filename)))
-        img = DataScraper.compress(img, 0.25)
-        img = ImageProcessor.crop(img, row_start=90)
-        cv2.imwrite(os.path.join(comp_folder, filename), img)
-
-def temp3():
-    path = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-compressed/hsv_0_0.5_0.png'
-    path_orig = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv/hsv_0_0.5_0.png'
-    img = np.array(Image_PIL.open(path))
-    img_orig = np.array(Image_PIL.open(path_orig))
-    print(img.shape, img_orig.shape)
-
-
-def temp4():
-    count =  3051
-    # folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-2"
-    # new_folder = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3"
-    for filename in os.listdir(folder):
-        img = np.array(Image_PIL.open(os.path.join(folder, filename)))
-        # print(img.shape)
-        hsv,frameNum,x,z = filename.split('_')
-        new_filename = "_".join([hsv, str(count), str(x), str(z)])
-        # print(new_filename)
-        cv2.imwrite(os.path.join(new_folder, new_filename), img)
-        count += 1
-
 def main(args):    
     ds = DataScraper()
     rospy.init_node('controller', anonymous=True)
@@ -205,8 +166,4 @@ def main(args):
 
 if __name__ == '__main__':
     main(sys.argv)
-    # temp()
-    # temp2()
-    # temp3()
-    # temp4()
 

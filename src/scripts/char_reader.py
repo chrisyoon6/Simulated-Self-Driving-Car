@@ -75,8 +75,7 @@ class CharReader:
         return out
 
     def pre_processing_for_id(self, im):
-        """EXACT same as pre_processing_for_model
-        but with size (15,30)
+        """same as pre_processing_for_model but with size (15,30)
 
         Args:
             im (image): input image with a character to be read

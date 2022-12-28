@@ -29,7 +29,6 @@ ID_RIGHT = 190
 
 # PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model-1.1.1.h5'
 # PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model-1.1.h5'
-
 PATH_NUM_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/num_model2.h5'
 PATH_ALPHA_MODEL = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/alpha_model2.1.h5'
 PATH_PARKING_ID = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/id_model2.h5'
@@ -68,7 +67,6 @@ class PlateReader:
             debug (bool): if true, returns cx, cy as well
         Returns:
             list[float]: a list of the largest contours
-
         """
         
         contours, hierarchy = cv2.findContours(
@@ -81,8 +79,6 @@ class PlateReader:
         M = cv2.moments(c)
         cx = int(M['m10']/M['m00'])
         cy = int(M['m01']/M['m00'])
-
-        # print("Max area", M['m00'])
 
         if debug:
             return c, cx, cy
@@ -162,16 +158,11 @@ class PlateReader:
             cv::Mat: Projected view of the license plate, or empty list if invalid image.
         """        
         processed_im = ImageProcessor.filter_plate(img, ImageProcessor.plate_low, ImageProcessor.plate_up)
-        # cv2.imshow("plate filtered", processed_im)
-        # cv2.waitKey(1)
         c = self.get_moments(processed_im)
         if not list(c):
             # no contour
             return []
         area = cv2.contourArea(c)
-        # print("---------Area: ", area)
-        # cv2.imshow('contours', cv2.drawContours(cv2.resize(img, (400, 300)), c, -1, (0,0,255), 3))
-        # cv2.waitKey(3)
         if area < AREA_LOWER_THRES or area > AREA_UPPER_THRES:
             return []
         approx = self.approximate_plate(c, epsilon=0.1)
@@ -180,7 +171,6 @@ class PlateReader:
         if not list(verticies):
             # no verticies (i.e. no perspec. transform)
             return []
-        # print("VERTICIES:", verticies)
         plate_view = self.transform_perspective(CAR_WIDTH, CAR_HEIGHT, verticies, img)
         return plate_view
 
@@ -293,7 +283,6 @@ class PlateReader:
         """
         pts = np.float32([[0, 0], [width, 0],
                           [0, height], [width, height]])
-        # print("transform perspective")
         Mat = cv2.getPerspectiveTransform(sorted_pts, pts)
         return cv2.warpPerspective(image, Mat, (width, height))
 
@@ -307,9 +296,8 @@ class PlateReader:
                 x = contour[i]
                 y = contour[i + 1]
                 coords.append((x, y))
-
-            i = i + 1
-
+            i += 1
+            
         return coords
 
     @staticmethod
@@ -322,10 +310,8 @@ class PlateReader:
         Returns: 
             ndarray: Verticies in list sorted by top to bottom, left to right, with each verticies being an array with [col, row]
         """
-
         avg_y = 0
         avg_x = 0
-        # print("List of points:", list_of_points)
         for i in list_of_points:
             avg_y += i[1]
             avg_x += i[0]
@@ -355,7 +341,6 @@ class PlateReader:
 
         coords = [tl, tr, bl, br]
         return np.float32(coords).reshape(-1, 2)
-
 
 def main(args):
     pr = PlateReader(script_run=True)

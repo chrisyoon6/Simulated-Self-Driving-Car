@@ -15,7 +15,6 @@ for filename in os.listdir(directory):
     f = os.path.join(directory, filename)
     # checking if it is a file
     if os.path.isfile(f):
-        # count += 1
         im = np.array(Image.open(f))
         
         scale_percent = 10 # percent of original size
@@ -30,7 +29,5 @@ for filename in os.listdir(directory):
         else:
             cv2.imwrite(os.path.join(save_path_num, filename), resized)
 
-        # cv2.imshow('image', resized)
-        # cv2.waitKey(100)
 
-# print('File count: ' + str(count))
+

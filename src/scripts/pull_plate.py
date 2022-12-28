@@ -14,6 +14,17 @@ from cv_bridge import CvBridge, CvBridgeError
 from char_reader import CharReader
 from plate_reader import PlateReader
 
+
+"""
+Data collection pipeline:
+for each character 0-9,A-Z:
+    1) Light, dark lighting (differ locations - i.e. dark when under tree)
+    2) Clear, blurry (distance from license plate, grass part more blurry)
+    3) differ positions of the char (left 2 if letter, right 2 if num)
+
+Around 36 * 2 * 2 * 2 = 288 frames 
+"""
+
 # license plate working values
 uh = 179
 us = 10
@@ -37,20 +48,8 @@ ID_RIGHT = 190
 
 PATH_PARKING_ID = '/home/fizzer/ros_ws/src/ENPH353-Team12/src/models/id_model1.h5'
 
-
 font = cv2.FONT_HERSHEY_COMPLEX
 font_size = 0.5
-
-
-"""
-Data collection pipeline:
-for each character 0-9,A-Z:
-    1) Light, dark lighting (differ locations - i.e. dark when under tree)
-    2) Clear, blurry (distance from license plate, grass part more blurry)
-    3) differ positions of the char (left 2 if letter, right 2 if num)
-
-Around 36 * 2 * 2 * 2 = 288 frames 
-"""
 
 class PlatePull:
 
@@ -117,7 +116,6 @@ class PlatePull:
         processed_im = self.process_stream(cv_image)
 
         # draw contours on the original image
-
         c, cx, cy = self.get_moments(processed_im)
 
         # draws a circle at the center of mass of contour

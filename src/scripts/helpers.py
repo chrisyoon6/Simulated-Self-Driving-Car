@@ -56,9 +56,6 @@ def compress_frames():
     target_path = "/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-3-compressed/"
     Helpers.compress_all_data(src_path, target_path, 0.5)
 
-def move_files():
-    pass
-
 def main():
     path = "/home/fizzer/ros_ws/src/id-data/"
     output_path = "/home/fizzer/ros_ws/src/id-data-compressed/"

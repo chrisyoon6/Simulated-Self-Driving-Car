@@ -1,10 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras import models
 import numpy as np
-import cv2
 from PIL import Image
 
-print("--------------------Model script ----------------------------")
 class Model:
     """This class is responsble for handling trained models.
 
@@ -47,27 +45,3 @@ class Model:
         img = Model.preprcocess_img(img)
         pred = self.mod.predict(img)[0]
         return pred
-
-def temp():
-    path = '/home/fizzer/ros_ws/src/models/drive_model_comp.h5'
-    md = Model(path)
-    # input = np.zeros((1,720,1280,1))
-    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-compressed/hsv_1_0.5_0.png'))
-    input = input/255
-    input = np.expand_dims(np.expand_dims(input,axis=-1),axis=0)
-    print(input.shape)
-    print(md.predict(input))
-
-def temp2():
-    path = '/home/fizzer/ros_ws/src/models/drive_model_comp.h5'
-    mod = Model(path)
-    input = np.array(Image.open('/home/fizzer/ros_ws/src/ENPH353-Team12/src/drive-data-hsv-compressed/hsv_1_0.5_0.png'))
-    pred = mod.predict(input)
-    print(pred)
-
-def main():
-    # temp()
-    temp2()
-    
-if __name__ == '__main__':
-    main()
